@@ -2,24 +2,34 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from algorithms import RandomAlgorithm, EpsilonGreedyAlgorithm, ThompsonSamplingAlgorithm
+from algorithms import RandomAlgorithm, EpsilonGreedyAlgorithm, ThompsonSamplingAlgorithm, BayesUCBAlgorithm
 from bandits import BernoulliBanditEnv
 
 # TODO: add command line config
 
-num_trials = 1000
+num_trials = 200
 num_arms = 10
 T = 1000
-epsilon = 0.1
 
+# TODO: move this function somewhere else
 def cumulative_regret(bandit_env, rewards):
     T = len(rewards)
     optimal_reward = bandit_env.optimal_mean
     cumulative_reward = np.cumulative_sum(rewards)
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
-# TODO: refactor this shit
-methods = ["random", "greedy", "e-greedy 0.1", "e-greedy 0.2", "explore-commit 200", "e-greedy decay", "TS"]
+# TODO: refactor this
+methods = [
+    "random",
+    "greedy",
+    "e-greedy 0.1",
+    "e-greedy 0.2",
+    "explore-commit 200",
+    "e-greedy decay",
+    "Bayes UCB",
+    "Bayes UCB c=2",
+    "TS"
+]
 
 regret_sums = np.zeros((len(methods), T))
 regret_sq_sums = np.zeros((len(methods), T))
@@ -39,8 +49,11 @@ for _ in tqdm(range(num_trials)):
         EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
         EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
         EpsilonGreedyAlgorithm(bandit_env, lambda t: min(1, 0.2 * (1 - t / T))),
+        BayesUCBAlgorithm(bandit_env, 0),
+        BayesUCBAlgorithm(bandit_env, 2),
         ThompsonSamplingAlgorithm(bandit_env)
     ]
+    # TODO: refactor this
     assert(len(algorithms) == len(methods))
 
     for i, alg in enumerate(algorithms):
