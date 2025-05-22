@@ -2,7 +2,7 @@
 #import "@local/david:1.0.0": *
 
 #show: ieee.with(
-  title: [CS221 Project Progress Report:\ An Exploration of Recent Bandit Algorithms],
+  title: [CS221 Project Progress Report:\ Understanding Recent Bandit Algorithms],
   authors: (
     (
       name: "David Chen",
