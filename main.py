@@ -7,9 +7,9 @@ from bandits import BernoulliBanditEnv
 
 # TODO: add command line config
 
-num_trials = 200
+num_trials = 1000
 num_arms = 10
-T = 1000
+T = 2000
 
 # TODO: move this function somewhere else
 def cumulative_regret(bandit_env, rewards):
@@ -24,10 +24,9 @@ methods = [
     "greedy",
     "e-greedy 0.1",
     "e-greedy 0.2",
-    "explore-commit 200",
     "e-greedy decay",
+    "explore-commit 200",
     "Bayes UCB",
-    "Bayes UCB c=2",
     "TS"
 ]
 
@@ -47,10 +46,9 @@ for _ in tqdm(range(num_trials)):
         EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.0),
         EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.1),
         EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
+        EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t+1, -1 / 3)),
         EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
-        EpsilonGreedyAlgorithm(bandit_env, lambda t: min(1, 0.2 * (1 - t / T))),
         BayesUCBAlgorithm(bandit_env, 0),
-        BayesUCBAlgorithm(bandit_env, 2),
         ThompsonSamplingAlgorithm(bandit_env)
     ]
     # TODO: refactor this
@@ -64,7 +62,7 @@ for _ in tqdm(range(num_trials)):
 
 for i in range(len(methods)):
     plt.plot(regret_sums[i] / num_trials, label=methods[i])
-plt.xlim(left=0)
+plt.xlim(left=0, right=T)
 plt.ylim(bottom=0, top=120)
 plt.title("beta-Bernoulli Bandit")
 plt.xlabel("iteration")
