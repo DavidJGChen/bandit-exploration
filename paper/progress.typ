@@ -52,19 +52,19 @@ problem (UCB1)
 
 == Problem formulation
 
-== Dataset
+== Dataset (bandit simulation)
 
-All "data" is generated ad-hoc during simulations. Outcomes associated with specific distributions are generated randomly using existing libraries, such as `numpy.random` and `scipy.stats`.
+All relevant "data" is generated online (ad-hoc) during simulations. Outcomes associated with specific distributions are generated randomly using existing libraries, such as `numpy.random` and `scipy.stats`.
 
 For example, in a Bernoulli bandit instance, the initial parameters $theta_k$ across $K$ arms are generated independently from a continuous uniform distribution on $[0,1]$ using `np.random.uniform`. The subsequent rewards are then generated using an indicator function implemented using `np.random.rand`. These are generated as needed during simulation.
 
-== Baseline
+== Baseline (simple algorithms)
 
-My baseline involves implementation of simple non-adaptive algorithms for the beta-Bernoulli bandit setting. These include a random strategy, various $epsilon$-greedy strategies, and explore-then-commit.
+The baseline involves implementation of simple non-adaptive exploration algorithms for the beta-Bernoulli bandit setting. These include a random strategy, various $epsilon$-greedy strategies, and explore-then-commit.
 
-The random strategy simply chooses an action, uniformly at random from the set of available actions, at each time-step. This is mainly chosen to demonstrate a worst-case upper bound on regret for all subsequent algorithms.
+The random strategy simply chooses an action uniformly at random from the set of available actions, at each time-step. This is mainly chosen to demonstrate a worst-case upper bound on regret for all subsequent algorithms.
 
-The $epsilon$-greedy algorithms involve choosing a uniformly random action at each time period with probability $epsilon_t$, and otherwise choosing the action with the highest point estimate of mean reward. Notably $epsilon_t$ can vary over time, but overall this class of algorithms is still classified into the non-adaptive exploration category, given it does not change its exploration strategy based on the realized history.
+The $epsilon$-greedy algorithms involve choosing a uniformly random action at each time period with probability $epsilon_t$, and otherwise choosing the action with the maximum point-estimate of the mean reward. Notably $epsilon_t$ can vary over time, but overall this class of algorithms is still classified into the non-adaptive exploration category, given it does not change its exploration strategy based on the realized history.
 
 Some examples of valid choices of $epsilon_t$ are:
 - Constant (ex. $epsilon_t = epsilon in [0, 1)$),
@@ -73,7 +73,7 @@ Some examples of valid choices of $epsilon_t$ are:
 
 These approaches are chosen as the baseline of algorithms that do not incorporate any additional notion of uncertainty into the exploration strategy, which leads to provably worse regret-bounds and demonstrably worse realized regret in simulation.
 
-== Main approach
+== Main approach (advanced algorithms)
 
 More interesting algorithms arise when we attempt to balance exploration-exploitation through use of confidence intervals, probability matching, or explicitly minimizing the information ratio.
 
@@ -83,17 +83,53 @@ On the other hand, Thompson sampling selects an action based off of the statisti
 
 Finally, I examine information-directed sampling, where the action is chosen to minimize an information ratio based on the expected regret and mutual information.
 
-These algorithms have all been shown to have much better upper-bounds for regret than the baseline algorithms, and have also demonstrated better performance in simulation.
+These algorithms have all been shown to have improved upper-bounds for regret compared to the baseline algorithms, and have also demonstrated better performance in simulation.
+
+== Additional settings
+
+While the beta-Bernoulli bandit setting provides useful insights by itself, extension of analysis to a wider variety of settings may provide a more complete picture of the capabilities of all the algorithms, as well as distinguish algorithms that are capable of taking advantage of settings where there exists a richer information structure.
+
+To that end, I believe it will be worthwhile to implement the following additional settings:
+- _Independent Gaussian_, where the reward for each arm is sampled from a Gaussian distribution with a fixed known variance, and the mean parameters are assumed to be independent samples from a Gaussian prior. 
+- _Independent Poisson_, where the reward for each arm is sampled from a Poisson distribution, and the rate parameters are assumed to be independent samples from a Gamma prior. 
+- _Linear Gaussian_, where actions $a in RR^d$ are known $d$-dimensional vectors. The rewards correspond to #box[$a^top theta + epsilon.alt_t$], where $theta$ is drawn from a multivariate Gaussian prior, and $epsilon.alt_t$ is independent Gaussian noise.
 
 == Evaluation
 
-In
+I evaluate all algorithms over 2000 simulations (trials), each running for $T=2000$. For each trial, we calculate the cumulutative sum over time, and that sequence is then averaged over all trials.
+
+At the time of writing, this is the extent of the quantitative evaluation. A more qualitative comparison of the regret between each algorithm is discussed.
+
+In addition, at the time of writing, only the beta-Bernoulli bandit setting is evaluated. The other settings mentioned previously have yet to be implemented.
+
+For the final discussion, I believe it would also be worthwhile to compare the runtimes of the different algorithms. Some algorithms, such as $epsilon$-greedy, only rely on a few elementary operations each iteration, while some, like IDS, involve more intensive numerical methods to approximate integrals.
+
+A final point of comparison can be done theoretically through best known regret bounds in similar settings. Derivations will be provided for selected results, and comparison between algorithms as well as their empirical results will be shown.
 
 = Results and Discussion
 
+Through a round of preliminary simulations, I am able to reproduce results similar to existing experimental results from Russo and Van Roy @IDS. For the algorithms not included in prior simulations, namely the non-adaptive exploration algorithms, I observe noticably higher regret for this horizon. Interestingly, within this interval, $epsilon$-greedy with exponential decay seems to perform worse than constant $epsilon$-greedy. Indeed, checking the $epsilon_t$ factor, I find that $epsilon_t$ decays to $0.1$ only after the $1000$th time-step, at which point the slope of the regret curve seems to become more shallow than constant $epsilon$-greedy with $epsilon = 0.1$. Past $T=2000$, I believe that $epsilon$-greedy with decay should have lower cumulative regret, and further analysis to characterize this may be interesting.
+
+Explore-then-commit exhibits a very different regret curve, as it is essentially fully random for $200$ time-steps before switching to fully greedy. The initial slope of the regret curve is initially much shallower than the other algorithms at $t = 200$, and further analysis of the exact behavior and slope of the regret curve would also be interesting to investigate. For any instance of the problem, the cumulative regret is equivalent to the probability that the optimal action is correctly identified after the exploration period, and if not, the average difference in reward between the actual chosen action and the optimal one.
 #figure(
-  image("fig3.png")
-)
+  image("fig4.png"),
+  caption: [
+    The average cumulative regret over $T=2000$ for beta-Bernoulli problems with $10$ arms. $"# trials" = N = 2000$.
+  ]
+) <beta-bernoulli-regret>
 
 = Future Work
 
+To summarize concisely the planned work to be done after the submission of this progress report:
+- Additional settings
+  - Independent Gaussian
+  - Independent Poisson
+  - Linear Gaussian
+- Additional algorithms
+  - IDS
+  - Variance-based IDS
+  - Other UCB algorithms
+- Additional analysis
+  - Selection and derivation of key regret results
+  - Comparison with simulation
+  - Runtime analysis

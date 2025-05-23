@@ -7,7 +7,7 @@ from bandits import BernoulliBanditEnv
 
 # TODO: add command line config
 
-num_trials = 1000
+num_trials = 2000
 num_arms = 10
 T = 2000
 
