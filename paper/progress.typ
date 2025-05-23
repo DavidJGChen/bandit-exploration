@@ -12,6 +12,9 @@
   ),
   bibliography: bibliography("refs.bib"),
   figure-supplement: [Fig.],
+  abstract: [
+    This progress report outlines an ongoing project on exploring bandit algorithms within the classic stochastic multi-armed bandit framework. The project's goal is to provide a comprehensive comparison of algorithms through reproduction of existing empirical analysis of regret and runtime, qualitative observations of behavior, and theoretical comparison of proven regret bounds. To date, a simulation framework has been developed and populated with algorithms such as random, $epsilon$-greedy, explore-then-commit, Bayes-UCB, and Thompson sampling, with preliminary evaluations conducted in the beta-Bernoulli bandit setting. Future work will expand the analysis to include additional settings with more complex information structure, alongside the implementation and evaluation of more advanced algorithms such as information-directed sampling (IDS).
+  ]
 )
 
 = Introduction
@@ -22,7 +25,7 @@ In the broad context of online decision-making under uncertainty, the class of p
 
 The primary focus of this course project is to provide a comprehensive comparison of a collection of algorithms for the classic stochastic multi-armed bandit setting. Namely, I do not focus on settings such as those of contextual or adversarial bandits. I aim to accomplish this task by reproducing simulation results such as those presented in Russo and Van Roy @IDS. I also intend to include a selection of derivations on important theoretical results. In summary, comparisons will take the form of empirical analysis of regret, runtime, and qualitative observations of algorithm behavior, as well as theoretical comparison of proven regret bounds.
 
-At the time of writing, the current progress includes a functioning framework for simulation of various bandit algorithms. Implemented algorithms include: random, $epsilon$-greedy, explore-then-commit (ETC), Bayes-UCB, and Thompson sampling. Preliminary results entail simulation on the independent beta-Bernoulli bandit setting.
+At the time of writing, progress includes a functioning framework for simulation of various bandit algorithms. Implemented algorithms include: random, $epsilon$-greedy, explore-then-commit (ETC), Bayes-UCB, and Thompson sampling. Preliminary results entail simulation on the independent beta-Bernoulli bandit setting.
 
 == Brief overview of the multi-armed bandit problem.
 
@@ -36,21 +39,36 @@ A key difference between MABs and the more general reinforcement learning framew
 Typical theoretical analysis of MABs often involves the notion of _regret_, which intuitively is the expected difference in the sum of rewards between a strategy that chooses the optimal action at every round, and the actual strategy. There is also the notion of _per-period regret_, which is specific to a single round. Upper and lower bounds on regret are usually of interest for various algorithms, and much of the literature is dedicated to deriving and improving these bounds.
 
 = Related Works
-- lai and robbins 1985
-- info theoretic analysis thompson sampling
-- learning to optimize via IDS
-- thompson 1933
-- bayes ucb
-- Finite-time analysis of the multiarmed bandit
-problem (UCB1)
-- An empirical evaluation of Thompson sampling
-- bandit formulation Some aspects of the sequential design of experiments
-- bandit algorithms
-- slivkin bandit stuff
+
+The first formulation of the multi-armed bandit problem is most commonly attributed to a paper from Robbins in 1952 @robbins1952. Since then, numerous techniques and settings have appeared in the literature. The introduction of "upper confidence bound" strategies as an approach to more efficient exploration appeared in Lai and Robbins @lai1985.
+
+Many early approaches were more aligned with the frequentist perspective, and extensions of the idea of upper confidence bounds resulted in algorithms such as UCB1 @ucb1, which also proved upper bounds on the cumulative regret that scaled logarithmically with time. Over time, analysis for the Bayesian approach also gained popularity, such as the Bayes-UCB approach introduced by Kaufmann et al. @kaufmann12.
+
+Around the same time, an approach known as Thompson sampling started gaining recognition in the context of MABs. Thompson sampling itself pre-dated bandits, first introduced by Thompson in 1933 @thompson. In the last couple of decades, theoretical and experimental analysis demonstrated impressive performance in the context of bandits @empirical2011.
+
+Eventually, this culminated in an elegant approach to deriving upper bounds on regret for Thompson sampling using concepts from information theory. Russo and Van Roy introduced the concept of the _information ratio_, which was used to prove general bounds that depended on the entropy of the prior distribution of the optimal action @itats. The information ratio turned out to be quite useful beyond a one-time analysis of Thompson sampling; Russo and Van Roy eventually developed a novel algorithm that explicitly minimized the information ratio, and provided theoretical and experimental results that demonstrated its superiority over Thompson sampling in various settings @IDS. It is this paper that I take inspiration in terms of reproduction of simulation results.
+
+Finally, there are multiple other resources that have gathered results and techniques across the field of bandits as a whole, including extensions such as contextual, adversarial, and many other related settings @lattimore2020bandit, @intro-bandits. I aim to provide worked proofs of some results presented in these comprehensive texts from Slivkins @intro-bandits, and Lattimore and Szepesvári @lattimore2020bandit.
 
 = Methodology
 
 == Problem formulation
+
+I leave a more detailed formulation for the final paper. However, I'll briefly summarize the main terminology and setting I have been working with.
+
+We work with a probability space $(Omega, FF, PP)$, and all random variables are defined with respect to this space, including the random variables that model prior uncertainty as described commonly in the Bayesian formulation.
+
+The agent chooses actions $(A_t)_(t in NN)$ from a finite set $cal(A)$, and subsequently observes the outcomes $(Y_(t, A_t))_(t in NN)$, where each $Y_(t,a) in cal(Y)$. We assume, according to the Bayesian perspective, that there is a random element $theta$ that describes the true distribution of outcomes, such that conditioned on $theta$, the sequence $(Y_t)_(t in NN) = ((Y_t,a)_(a in cal(A)))_(t in NN)$ is independent and identically distributed.
+
+Furthermore, the agent observes a reward associated with the outcome. In many cases, the reward and outcome are equivalent, but generally, reward can be a known function #box[$R: cal(Y) -> RR$]. For convenience, we can denote $R_(t,a) := R(Y_(t,a))$.
+
+Once we have the notion of reward, we can consider maximization of that reward, and we can define the optimal action(s) to be $A^*$ such that $A^* in argmax_(a in cal(A)) EE[R_(t,a) mid(|) theta]$. Building on top of this, we can finally define the $T$-period _regret_ of a strategy of choosing actions $pi$ to be:
+$
+  Regret(T, pi) = sum_(t=1)^T (R_(t, A^*) - R_(t, A_t)),
+$
+where the sequence of actions is understood to be chosen by $pi$. We can take an expectation on both sides, with respect to randomness in the choice of actions, outcomes, and over the prior distribution of $theta$, which leaves us with the _expected regret_.
+
+Further concepts which are useful but I do not define in detail in the progress report are fundamental concepts in information theory, such as the _Shannon entropy_ $H(P)$ of a probability distribution $P$, the _Kullback-Leibler divergence_ $D_"KL" (P mid(bar.double) Q)$, the _mutual information_ $I(X mid(\;) Y)$ with respect to random variables $X$ and $Y$, and finally, the _information ratio_ as first described in @itats and utilized in IDS @IDS.
 
 == Dataset (bandit simulation)
 
@@ -60,7 +78,7 @@ For example, in a Bernoulli bandit instance, the initial parameters $theta_k$ ac
 
 == Baseline (simple algorithms)
 
-The baseline involves implementation of simple non-adaptive exploration algorithms for the beta-Bernoulli bandit setting. These include a random strategy, various $epsilon$-greedy strategies, and explore-then-commit.
+The baseline involves implementation of simple non-adaptive exploration algorithms for the beta-Bernoulli bandit setting. The "non-adaptive exploration" terminology is borrowed from Slivkins @intro-bandits. These include a random strategy, various $epsilon$-greedy strategies, and explore-then-commit.
 
 The random strategy simply chooses an action uniformly at random from the set of available actions, at each time-step. This is mainly chosen to demonstrate a worst-case upper bound on regret for all subsequent algorithms.
 
@@ -108,9 +126,9 @@ A final point of comparison can be done theoretically through best known regret 
 
 = Results and Discussion
 
-Through a round of preliminary simulations, I am able to reproduce results similar to existing experimental results from Russo and Van Roy @IDS. For the algorithms not included in prior simulations, namely the non-adaptive exploration algorithms, I observe noticably higher regret for this horizon. Interestingly, within this interval, $epsilon$-greedy with exponential decay seems to perform worse than constant $epsilon$-greedy. Indeed, checking the $epsilon_t$ factor, I find that $epsilon_t$ decays to $0.1$ only after the $1000$th time-step, at which point the slope of the regret curve seems to become more shallow than constant $epsilon$-greedy with $epsilon = 0.1$. Past $T=2000$, I believe that $epsilon$-greedy with decay should have lower cumulative regret, and further analysis to characterize this may be interesting.
+Through a round of preliminary simulations, I am able to successfully reproduce results similar to existing experimental results from Russo and Van Roy @IDS. For the algorithms not included in prior simulations, namely the non-adaptive exploration algorithms, I observe noticably higher regret for this horizon. Interestingly, within this interval, $epsilon$-greedy with exponential decay seems to perform worse than constant $epsilon$-greedy. Indeed, checking the $epsilon_t$ factor, I find that $epsilon_t$ decays to $0.1$ only after the $1000$th time-step, at which point the slope of the regret curve seems to become more shallow than constant $epsilon$-greedy with $epsilon = 0.1$. Past $T=2000$, I believe that $epsilon$-greedy with decay should have lower cumulative regret, and further analysis to characterize this trend may be interesting.
 
-Explore-then-commit exhibits a very different regret curve, as it is essentially fully random for $200$ time-steps before switching to fully greedy. The initial slope of the regret curve is initially much shallower than the other algorithms at $t = 200$, and further analysis of the exact behavior and slope of the regret curve would also be interesting to investigate. For any instance of the problem, the cumulative regret is equivalent to the probability that the optimal action is correctly identified after the exploration period, and if not, the average difference in reward between the actual chosen action and the optimal one.
+Explore-then-commit exhibits a very different regret curve, as it is essentially fully random for $200$ time-steps before switching to fully greedy. The slope of the regret curve is initially much shallower than the other algorithms at $t = 200$, and further analysis of the exact behavior and slope of the regret curve would also be interesting to investigate. For any instance of the problem, the cumulative regret is equivalent to the probability that the optimal action is correctly identified after the exploration period, and if not, the average difference in reward between the actual chosen action and the optimal one.
 #figure(
   image("fig4.png"),
   caption: [

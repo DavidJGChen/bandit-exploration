@@ -1,11 +1,125 @@
 @inproceedings{IDS,
- author = {Russo, Daniel and Van Roy, Benjamin},
- booktitle = {Advances in Neural Information Processing Systems},
- editor = {Z. Ghahramani and M. Welling and C. Cortes and N. Lawrence and K.Q. Weinberger},
- pages = {},
- publisher = {Curran Associates, Inc.},
- title = {Learning to Optimize via Information-Directed Sampling},
- url = {https://proceedings.neurips.cc/paper_files/paper/2014/file/90720a2fcc41f9332e6a1558da327089-Paper.pdf},
- volume = {27},
- year = {2014}
+    author = {Russo, Daniel and Van Roy, Benjamin},
+    booktitle = {Advances in Neural Information Processing Systems},
+    editor = {Z. Ghahramani and M. Welling and C. Cortes and N. Lawrence and K.Q. Weinberger},
+    pages = {},
+    publisher = {Curran Associates, Inc.},
+    title = {Learning to Optimize via Information-Directed Sampling},
+    url = {https://proceedings.neurips.cc/paper_files/paper/2014/file/90720a2fcc41f9332e6a1558da327089-Paper.pdf},
+    volume = {27},
+    year = {2014}
+}
+
+@misc{intro-bandits,
+    title={Introduction to Multi-Armed Bandits}, 
+    author={Aleksandrs Slivkins},
+    year={2024},
+    eprint={1904.07272},
+    archivePrefix={arXiv},
+    primaryClass={cs.LG},
+    url={https://arxiv.org/abs/1904.07272}, 
+}
+
+@article{robbins1952,
+  title={Some aspects of the sequential design of experiments},
+  author={Robbins, Herbert},
+  year={1952}
+}
+
+@article{lai1985,
+    title = {Asymptotically efficient adaptive allocation rules},
+    journal = {Advances in Applied Mathematics},
+    volume = {6},
+    number = {1},
+    pages = {4-22},
+    year = {1985},
+    issn = {0196-8858},
+    doi = {https://doi.org/10.1016/0196-8858(85)90002-8},
+    url = {https://www.sciencedirect.com/science/article/pii/0196885885900028},
+    author = {T.L Lai and Herbert Robbins}
+}
+
+@article{ucb1,
+    author = {Auer, Peter and Cesa-Bianchi, Nicol\`{o} and Fischer, Paul},
+    title = {Finite-time Analysis of the Multiarmed Bandit Problem},
+    year = {2002},
+    issue_date = {May-June 2002},
+    publisher = {Kluwer Academic Publishers},
+    address = {USA},
+    volume = {47},
+    number = {2–3},
+    issn = {0885-6125},
+    url = {https://doi.org/10.1023/A:1013689704352},
+    doi = {10.1023/A:1013689704352},
+    abstract = {Reinforcement learning policies face the exploration versus exploitation dilemma, i.e. the search for a balance between exploring the environment to find profitable actions while taking the empirically best action as often as possible. A popular measure of a policy's success in addressing this dilemma is the regret, that is the loss due to the fact that the globally optimal policy is not followed all the times. One of the simplest examples of the exploration/exploitation dilemma is the multi-armed bandit problem. Lai and Robbins were the first ones to show that the regret for this problem has to grow at least logarithmically in the number of plays. Since then, policies which asymptotically achieve this regret have been devised by Lai and Robbins and many others. In this work we show that the optimal logarithmic regret is also achievable uniformly over time, with simple and efficient policies, and for all reward distributions with bounded support.},
+    journal = {Mach. Learn.},
+    month = may,
+    pages = {235–256},
+    numpages = {22},
+    keywords = {finite horizon regret, bandit problems, adaptive allocation rules}
+}
+
+
+@InProceedings{kaufmann12,
+  title = 	 {On Bayesian Upper Confidence Bounds for Bandit Problems},
+  author = 	 {Kaufmann, Emilie and Cappe, Olivier and Garivier, Aurelien},
+  booktitle = 	 {Proceedings of the Fifteenth International Conference on Artificial Intelligence and Statistics},
+  pages = 	 {592--600},
+  year = 	 {2012},
+  editor = 	 {Lawrence, Neil D. and Girolami, Mark},
+  volume = 	 {22},
+  series = 	 {Proceedings of Machine Learning Research},
+  address = 	 {La Palma, Canary Islands},
+  month = 	 {21--23 Apr},
+  publisher =    {PMLR},
+  pdf = 	 {http://proceedings.mlr.press/v22/kaufmann12/kaufmann12.pdf},
+  url = 	 {https://proceedings.mlr.press/v22/kaufmann12.html},
+  abstract = 	 {Stochastic bandit problems have been analyzed from two different perspectives: a frequentist view, where the parameter is a deterministic unknown quantity, and a Bayesian approach, where the parameter is drawn from a prior distribution.  We show in this paper that methods derived from this second perspective prove optimal when evaluated using the frequentist cumulated regret as a measure of performance. We give a general formulation for a class of Bayesian index policies that rely on quantiles of the posterior distribution. For binary bandits, we prove that the corresponding algorithm, termed Bayes-UCB, satisfies finite-time regret bounds that imply its asymptotic optimality.  More generally, Bayes-UCB appears as an unifying framework for several variants of the UCB algorithm addressing different bandit problems (parametric multi-armed bandits, Gaussian bandits with unknown mean and variance, linear bandits). But the generality of the Bayesian approach makes it possible to address more challenging models. In particular, we show how to handle linear bandits with sparsity constraints by resorting to Gibbs sampling.}
+}
+
+@article{thompson,
+    ISSN = {00063444},
+    URL = {http://www.jstor.org/stable/2332286},
+    author = {William R. Thompson},
+    journal = {Biometrika},
+    number = {3/4},
+    pages = {285--294},
+    publisher = {[Oxford University Press, Biometrika Trust]},
+    title = {On the Likelihood that One Unknown Probability Exceeds Another in View of the Evidence of Two Samples},
+    urldate = {2025-05-22},
+    volume = {25},
+    year = {1933}
+}
+
+@inproceedings{empirical2011,
+    author = {Chapelle, Olivier and Li, Lihong},
+    booktitle = {Advances in Neural Information Processing Systems},
+    editor = {J. Shawe-Taylor and R. Zemel and P. Bartlett and F. Pereira and K.Q. Weinberger},
+    pages = {},
+    publisher = {Curran Associates, Inc.},
+    title = {An Empirical Evaluation of Thompson Sampling},
+    url = {https://proceedings.neurips.cc/paper_files/paper/2011/file/e53a0a2978c28872a4505bdb51db06dc-Paper.pdf},
+    volume = {24},
+    year = {2011}
+}
+
+@article{itats,
+    author  = {Daniel Russo and Benjamin Van Roy},
+    title   = {An Information-Theoretic Analysis of Thompson Sampling},
+    journal = {Journal of Machine Learning Research},
+    year    = {2016},
+    volume  = {17},
+    number  = {68},
+    pages   = {1--30},
+    url     = {http://jmlr.org/papers/v17/14-087.html}
+}
+
+@book{lattimore2020bandit,
+    title={Bandit Algorithms},
+    author={Lattimore, T. and Szepesv{\'a}ri, C.},
+    isbn={9781108486828},
+    lccn={2019053276},
+    url={https://books.google.com/books?id=bydXzAEACAAJ},
+    year={2020},
+    publisher={Cambridge University Press}
 }
