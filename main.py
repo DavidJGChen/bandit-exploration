@@ -2,14 +2,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from algorithms import RandomAlgorithm, EpsilonGreedyAlgorithm, ThompsonSamplingAlgorithm, BayesUCBAlgorithm
+from algorithms import RandomAlgorithm, EpsilonGreedyAlgorithm, ThompsonSamplingAlgorithm, BayesUCBAlgorithm, VarianceIDSAlgorithm
 from bandits import BernoulliBanditEnv
 
 # TODO: add command line config
 
-num_trials = 2000
+np.set_printoptions(precision=3)
+
+num_trials = 10
 num_arms = 10
-T = 2000
+T = 1000
 
 # TODO: move this function somewhere else
 def cumulative_regret(bandit_env, rewards):
@@ -20,14 +22,15 @@ def cumulative_regret(bandit_env, rewards):
 
 # TODO: refactor this
 methods = [
-    "random",
-    "greedy",
-    "e-greedy 0.1",
-    "e-greedy 0.2",
-    "e-greedy decay",
-    "explore-commit 200",
-    "Bayes UCB",
-    "TS"
+    # "random",
+    # "greedy",
+    # "e-greedy 0.1",
+    # "e-greedy 0.2",
+    # "e-greedy decay",
+    # "explore-commit 200",
+    # "Bayes UCB",
+    "TS",
+    "V-IDS"
 ]
 
 regret_sums = np.zeros((len(methods), T))
@@ -42,14 +45,15 @@ for _ in tqdm(range(num_trials)):
     # print("---------------")
 
     algorithms = [
-        RandomAlgorithm(bandit_env),
-        EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.0),
-        EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.1),
-        EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
-        EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t+1, -1 / 3)),
-        EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
-        BayesUCBAlgorithm(bandit_env, 0),
-        ThompsonSamplingAlgorithm(bandit_env)
+        # RandomAlgorithm(bandit_env),
+        # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.0),
+        # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.1),
+        # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
+        # EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t+1, -1 / 3)),
+        # EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
+        # BayesUCBAlgorithm(bandit_env, 0),
+        ThompsonSamplingAlgorithm(bandit_env),
+        VarianceIDSAlgorithm(bandit_env, 10000),
     ]
     # TODO: refactor this
     assert(len(algorithms) == len(methods))
@@ -62,10 +66,12 @@ for _ in tqdm(range(num_trials)):
 
 for i in range(len(methods)):
     plt.plot(regret_sums[i] / num_trials, label=methods[i])
-plt.xlim(left=0, right=T)
-plt.ylim(bottom=0, top=120)
+# plt.xlim(left=0, right=T)
+# plt.ylim(bottom=0, top=120)
 plt.title("beta-Bernoulli Bandit")
 plt.xlabel("iteration")
 plt.ylabel("cumulative regret")
+# plt.yscale("log")
+# plt.xscale("log")
 plt.legend()
 plt.show()
