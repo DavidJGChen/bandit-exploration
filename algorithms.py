@@ -133,9 +133,10 @@ class ThompsonSamplingAlgorithm(BaseAlgorithm):
 
 
 class VarianceIDSAlgorithm(BaseAlgorithm):
-    def __init__(self, bandit_env, M):
+    def __init__(self, bandit_env, M, use_argmin=False):
         super().__init__(bandit_env)
         self.M = M  # number of samples for MCMC
+        self.use_argmin = use_argmin
         self.alphas = np.ones(self.K).astype(int)
         self.betas = np.ones(self.K).astype(int)
         self.thetas = None
@@ -167,7 +168,12 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         # shape = (K, K). Indexing once (cond_mu[a_star]) gives us an array
         # of means of all arms conditioned on a_star being optimal.
         cond_mu = np.nan_to_num(
-            np.array([np.mean(thetas, axis=1) for thetas in partitioned_thetas])
+            np.array(
+                [
+                    np.mean(thetas, axis=1) if thetas.shape[1] > 0 else np.zeros(self.K)
+                    for thetas in partitioned_thetas
+                ]
+            )
         )
 
         # estimate expected value of optimal action
@@ -180,9 +186,10 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
             axis=0,
         )
 
-        simple_action = np.argmin(delta**2 / variance)
-        # action = self.__ids_action(delta, variance)
-        action = simple_action
+        if self.use_argmin:
+            action = np.argmin(delta**2 / variance)
+        else:
+            action = self.__ids_action(delta, variance)
 
         reward = self.bandit_env.sample(action)
 

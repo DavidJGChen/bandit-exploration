@@ -1,6 +1,8 @@
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+import os
 from tqdm import tqdm
+from multiprocessing import Pool
 
 from algorithms import (
     RandomAlgorithm,
@@ -12,8 +14,6 @@ from algorithms import (
 from bandits import BernoulliBanditEnv
 
 # TODO: add command line config
-
-np.set_printoptions(precision=3)
 
 num_trials = 1000
 num_arms = 10
@@ -39,29 +39,27 @@ methods = [
     # "Bayes UCB",
     "TS",
     "V-IDS",
+    "V-IDS argmin",
 ]
 
-regret_sums = np.zeros((len(methods), T))
-regret_sq_sums = np.zeros((len(methods), T))
 
-for _ in tqdm(range(num_trials)):
+def trial(_):
+    regret_sums = np.zeros((len(methods), T))
+    regret_sq_sums = np.zeros((len(methods), T))
+
     bandit_env = BernoulliBanditEnv(num_arms)
-    # print("arm means")
-    # print("---------------")
-    # for i, arm in enumerate(bandit_env.arms):
-    #     print(f"arm {i}: {arm.mean}")
-    # print("---------------")
 
     algorithms = [
         # RandomAlgorithm(bandit_env),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.0),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.1),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
-        # EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t+1, -1 / 3)),
+        # EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
         # EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
         # BayesUCBAlgorithm(bandit_env, 0),
         ThompsonSamplingAlgorithm(bandit_env),
         VarianceIDSAlgorithm(bandit_env, 10000),
+        VarianceIDSAlgorithm(bandit_env, 10000, use_argmin=True),
     ]
     # TODO: refactor this
     assert len(algorithms) == len(methods)
@@ -72,26 +70,41 @@ for _ in tqdm(range(num_trials)):
         regret_sums[i] += regrets
         regret_sq_sums[i] += np.square(regrets)
 
-for i in range(len(methods)):
-    plt.plot(regret_sums[i] / num_trials, label=methods[i])
-# plt.xlim(left=0, right=T)
-# plt.ylim(bottom=0, top=120)
-plt.title("beta-Bernoulli Bandit")
-plt.xlabel("iteration")
-plt.ylabel("cumulative regret")
-# plt.yscale("log")
-# plt.xscale("log")
-plt.legend()
-plt.show()
+    return regret_sums, regret_sq_sums
 
-for i in range(len(methods)):
-    plt.plot(regret_sums[i] / num_trials, label=methods[i])
-# plt.xlim(left=0, right=T)
-# plt.ylim(bottom=0, top=120)
-plt.title("beta-Bernoulli Bandit")
-plt.xlabel("iteration (log)")
-plt.ylabel("cumulative regret (log)")
-plt.yscale("log")
-plt.xscale("log")
-plt.legend()
-plt.show()
+
+if __name__ == "__main__":
+    np.set_printoptions(precision=3)
+
+    regret_sums = np.zeros((len(methods), T))
+    regret_sq_sums = np.zeros((len(methods), T))
+
+    with Pool() as pool:
+        it = pool.imap(trial, range(num_trials))
+        for r, r_s in tqdm(it, total=num_trials, smoothing=0.1):
+            regret_sums += r
+            regret_sq_sums += r_s
+
+    for i in range(len(methods)):
+        plt.plot(regret_sums[i] / num_trials, label=methods[i])
+    # plt.xlim(left=0, right=T)
+    # plt.ylim(bottom=0, top=120)
+    plt.title("beta-Bernoulli Bandit")
+    plt.xlabel("iteration")
+    plt.ylabel("cumulative regret")
+    # plt.yscale("log")
+    # plt.xscale("log")
+    plt.legend()
+    plt.show()
+
+    for i in range(len(methods)):
+        plt.plot(regret_sums[i] / num_trials, label=methods[i])
+    # plt.xlim(left=0, right=T)
+    # plt.ylim(bottom=0, top=120)
+    plt.title("beta-Bernoulli Bandit")
+    plt.xlabel("iteration (log)")
+    plt.ylabel("cumulative regret (log)")
+    plt.yscale("log")
+    plt.xscale("log")
+    plt.legend()
+    plt.show()
