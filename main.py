@@ -9,7 +9,7 @@ from bandits import BernoulliBanditEnv
 
 np.set_printoptions(precision=3)
 
-num_trials = 10
+num_trials = 100
 num_arms = 10
 T = 1000
 
@@ -73,5 +73,17 @@ plt.xlabel("iteration")
 plt.ylabel("cumulative regret")
 # plt.yscale("log")
 # plt.xscale("log")
+plt.legend()
+plt.show()
+
+for i in range(len(methods)):
+    plt.plot(regret_sums[i] / num_trials, label=methods[i])
+# plt.xlim(left=0, right=T)
+# plt.ylim(bottom=0, top=120)
+plt.title("beta-Bernoulli Bandit")
+plt.xlabel("iteration (log)")
+plt.ylabel("cumulative regret (log)")
+plt.yscale("log")
+plt.xscale("log")
 plt.legend()
 plt.show()

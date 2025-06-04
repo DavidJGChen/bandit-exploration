@@ -1,8 +1,8 @@
-import bandits
 import numpy as np
 from scipy.stats import beta
 from scipy.optimize import minimize_scalar
-import cvxpy as cvx
+
+DEBUG = False
 
 class BaseAlgorithm:
     def __init__(self, bandit_env):
@@ -136,49 +136,66 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
 
     def single_step(self, t):
         # estimated means of action parameters
-        # mu = np.mean(self.thetas, axis=1)
         mu = self.alphas / (self.alphas + self.betas)
 
-        max_action = np.argmax(self.thetas, axis=0) # max action in each sample
+        # max action in each sample
+        max_action = np.argmax(self.thetas, axis=0)
 
         # partition the sampled thetas based on which arm is optimal
-        partitioned_thetas = [self.thetas[:, np.where(max_action == action)[0]] for action in range(self.K)]
+        partitioned_thetas = [
+            self.thetas[:, np.where(max_action == a)[0]] for a in range(self.K)
+        ]
 
-        p_optimal = np.array([partitioned_thetas[action].shape[1] for action in range(self.K)]) / self.M
+        # probability an action is optimal, approximated using number of
+        # samples where it is optimal.
+        p_optimal = 1 / self.M * np.array(
+            [partitioned_thetas[a].shape[1] for a in range(self.K)]
+        )
 
-        # calculate estimated mean of all actions conditioned on arms being optimal
-        # shape = (K, K), where first dimension represents the conditional optimal arm.
-        cond_mu = np.nan_to_num(np.array([np.mean(thetas, axis=1) for thetas in partitioned_thetas]))
+        # calculate est. mean of actions conditioned on action being optimal.
+        # shape = (K, K). Indexing once (cond_mu[a_star]) gives us an array
+        # of means of all arms conditioned on a_star being optimal.
+        cond_mu = np.nan_to_num(
+            np.array(
+                [np.mean(thetas, axis=1) for thetas in partitioned_thetas]
+            )
+        )
 
         # estimate expected value of optimal action
-        rho_star = np.sum([p_optimal[action] * cond_mu[action, action] for action in range(self.K)])
-        delta = rho_star - mu
+        rho = np.sum([p_optimal[a] * cond_mu[a, a] for a in range(self.K)])
+        delta = rho - mu
 
-        variance = np.sum(np.array([p_optimal[action] * (cond_mu[action] - mu)**2 for action in range(self.K)]), axis=0)
-
-        # print(f"\n--------round {t}--------")
-        # print(f"mu:\t\t\t\t{mu}")
-        # print(f"times chosen:\t\t\t{self.alphas + self.betas - 2}")
-        # for action in range(self.K):
-        #     print(f"--Assume action {action} is optimal--")
-        #     print(f"estimated mean of action {action}:\t{mu[action]}")
-        #     print(f"p_optimal({action}):\t\t\t{p_optimal[action]}")
-        #     print(f"mean vector given {action} optimal:\t{cond_mu[action]}")
-        # print(f"---more stats---")
-        # print(f"rho_star:\t\t\t{rho_star}")
-        # print(f"delta vector:\t\t\t{delta}")
-        # print(f"variance:\t\t\t{variance}")
-        # print(f"info ratio:\t\t\t{delta**2 / variance}")
+        # calculate variance term for each arm as an expectation
+        variance = np.sum(
+            np.array(
+                [p_optimal[a] * (cond_mu[a] - mu)**2 for a in range(self.K)]
+            ),
+            axis=0,
+        )
 
         action = self.__ids_action(delta, variance)
-        # action = np.random.choice(self.K)
-        # print(f"action chosen:\t\t\t{action}")
         
         reward = self.bandit_env.sample(action)
 
         self.alphas[action] += reward
         self.betas[action] += 1 - reward
         self.thetas[action] = self.__calculate_theta(action)
+
+        if DEBUG:
+            print(f"\n--------round {t}--------")
+            print(f"mu:\t\t\t\t{mu}")
+            print(f"times chosen:\t\t\t{self.alphas + self.betas - 2}")
+            for action in range(self.K):
+                print(f"--Assume action {action} is optimal--")
+                print(f"estimated mean of action {action}:\t{mu[action]}")
+                print(f"p_optimal({action}):\t\t\t{p_optimal[action]}")
+                print(f"mean vector given {action} optimal:\t{cond_mu[action]}")
+            print(f"---more stats---")
+            print(f"rho_star:\t\t\t{rho_star}")
+            print(f"delta vector:\t\t\t{delta}")
+            print(f"variance:\t\t\t{variance}")
+            print(f"info ratio:\t\t\t{delta**2 / variance}")
+            print(f"action chosen:\t\t\t{action}")
 
         return action, reward
     
