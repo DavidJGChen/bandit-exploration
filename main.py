@@ -42,9 +42,9 @@ from bandits import (
 
 # TODO: add command line config
 
-num_trials = 3
+num_trials = 2000
 num_arms = 30
-T = 1000
+T = 250
 
 
 # TODO: move this function somewhere else
@@ -61,7 +61,7 @@ methods = [
     # "greedy",
     # "e-greedy 0.1",
     # "e-greedy 0.2",
-    "e-greedy decay",
+    # "e-greedy decay",
     # "explore-commit 200",
     "Bayes UCB",
     "TS",
@@ -89,7 +89,7 @@ def trial(_):
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.0),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.1),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
-        EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
+        # EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
         # EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
         BayesUCBAlgorithm(bandit_env, 0),
         ThompsonSamplingAlgorithm(bandit_env),

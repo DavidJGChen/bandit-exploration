@@ -200,7 +200,7 @@ class VarianceIDSAlgorithm(BaseLinearAlgorithm):
         )
 
         if self.use_argmin:
-            action = np.argmin(delta**2 / variance)
+            action = np.nan_to_num(np.argmin(delta**2 / variance))
         else:
             action = self.__ids_action(delta, variance)
 
