@@ -6,12 +6,39 @@ from multiprocessing import Pool
 
 from algorithms import (
     RandomAlgorithm,
+    # EpsilonGreedyAlgorithm,
+    # ThompsonSamplingAlgorithm,
+    # BayesUCBAlgorithm,
+    # VarianceIDSAlgorithm,
+)
+
+# from gaussian_algorithms import (
+#     EpsilonGreedyAlgorithm,
+#     ThompsonSamplingAlgorithm,
+#     BayesUCBAlgorithm,
+#     VarianceIDSAlgorithm,
+# )
+
+# from poisson_algorithms import (
+#     EpsilonGreedyAlgorithm,
+#     ThompsonSamplingAlgorithm,
+#     BayesUCBAlgorithm,
+#     VarianceIDSAlgorithm,
+# )
+
+from linear_algorithms import (
     EpsilonGreedyAlgorithm,
     ThompsonSamplingAlgorithm,
     BayesUCBAlgorithm,
     VarianceIDSAlgorithm,
 )
-from bandits import BernoulliBanditEnv
+
+from bandits import (
+    BernoulliBanditEnv,
+    GaussianBanditEnv,
+    PoissonBanditEnv,
+    LinearBanditEnv,
+)
 
 # TODO: add command line config
 
@@ -38,8 +65,8 @@ methods = [
     # "explore-commit 200",
     # "Bayes UCB",
     "TS",
-    "V-IDS",
-    "V-IDS argmin",
+    # "V-IDS",
+    # "V-IDS argmin",
 ]
 
 
@@ -47,7 +74,15 @@ def trial(_):
     regret_sums = np.zeros((len(methods), T))
     regret_sq_sums = np.zeros((len(methods), T))
 
-    bandit_env = BernoulliBanditEnv(num_arms)
+    # bandit_env = BernoulliBanditEnv(num_arms)
+    # bandit_env = GaussianBanditEnv(num_arms)
+    # bandit_env = PoissonBanditEnv(num_arms)
+    bandit_env = LinearBanditEnv(num_arms)
+
+    # print("theta:")
+    # print(bandit_env.theta)
+    # print("means:")
+    # print(np.array([arm.mean for arm in bandit_env.arms]))
 
     algorithms = [
         # RandomAlgorithm(bandit_env),
@@ -58,8 +93,8 @@ def trial(_):
         # EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
         # BayesUCBAlgorithm(bandit_env, 0),
         ThompsonSamplingAlgorithm(bandit_env),
-        VarianceIDSAlgorithm(bandit_env, 10000),
-        VarianceIDSAlgorithm(bandit_env, 10000, use_argmin=True),
+        # VarianceIDSAlgorithm(bandit_env, 10000),
+        # VarianceIDSAlgorithm(bandit_env, 10000, use_argmin=True),
     ]
     # TODO: refactor this
     assert len(algorithms) == len(methods)
@@ -79,7 +114,7 @@ if __name__ == "__main__":
     regret_sums = np.zeros((len(methods), T))
     regret_sq_sums = np.zeros((len(methods), T))
 
-    with Pool() as pool:
+    with Pool(processes=1) as pool:
         it = pool.imap(trial, range(num_trials))
         for r, r_s in tqdm(it, total=num_trials, smoothing=0.1):
             regret_sums += r

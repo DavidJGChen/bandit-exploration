@@ -4,6 +4,10 @@ from scipy.optimize import minimize_scalar
 
 DEBUG = False
 
+"""
+This kind of object-oriented inheritance is kind of bad, but it works for now.
+"""
+
 
 class BaseAlgorithm:
     def __init__(self, bandit_env):
@@ -33,6 +37,38 @@ class BaseAlgorithm:
         raise NotImplementedError
 
 
+class BaseBayesianAlgorithm(BaseAlgorithm):
+    def __init__(self, bandit_env):
+        super().__init__(bandit_env)
+
+    def get_means(self):
+        raise NotImplementedError
+
+    def reset_bayesian_state(self):
+        raise NotImplementedError
+
+    def update_bayesian_posterior(self, action, reward):
+        raise NotImplementedError
+
+
+class BaseBetaBernoulliAlgorithm(BaseBayesianAlgorithm):
+    def __init__(self, bandit_env):
+        super().__init__(bandit_env)
+        self.alphas = None
+        self.betas = None
+
+    def reset_bayesian_state(self):
+        self.alphas = np.ones(self.K).astype(int)
+        self.betas = np.ones(self.K).astype(int)
+
+    def update_bayesian_posterior(self, action, reward):
+        self.alphas[action] += reward
+        self.betas[action] += 1 - reward
+
+    def get_means(self):
+        return self.alphas / (self.alphas + self.betas)
+
+
 # ------------------------------------------------
 
 
@@ -48,28 +84,23 @@ class RandomAlgorithm(BaseAlgorithm):
 # ------------------------------------------------
 
 
-class EpsilonGreedyAlgorithm(BaseAlgorithm):
+class EpsilonGreedyAlgorithm(BaseBetaBernoulliAlgorithm):
     def __init__(self, bandit_env, epsilon_func):
         super().__init__(bandit_env)
         self.epsilon_func = epsilon_func
-        self.alphas = np.ones(self.K).astype(int)
-        self.betas = np.ones(self.K).astype(int)
 
     def reset_state(self):
-        self.alphas = np.ones(self.K).astype(int)
-        self.betas = np.ones(self.K).astype(int)
+        self.reset_bayesian_state()
 
     def single_step(self, t):
         if np.random.rand() < self.epsilon_func(t):
             action = np.random.choice(self.K)
         else:
-            theta_hats = np.divide(self.alphas, self.alphas + self.betas)
-            action = int(np.argmax(theta_hats))
+            action = int(np.argmax(self.get_means()))
 
         reward = self.bandit_env.sample(action)
 
-        self.alphas[action] += reward
-        self.betas[action] += 1 - reward
+        self.update_bayesian_posterior(action, reward)
 
         return action, reward
 
@@ -77,17 +108,14 @@ class EpsilonGreedyAlgorithm(BaseAlgorithm):
 # ------------------------------------------------
 
 
-class BayesUCBAlgorithm(BaseAlgorithm):
+class BayesUCBAlgorithm(BaseBetaBernoulliAlgorithm):
     def __init__(self, bandit_env, c):
         self.c = c
         super().__init__(bandit_env)
-        self.alphas = None
-        self.betas = None
         self.inv_log_factor = None
 
     def reset_state(self):
-        self.alphas = np.ones(self.K).astype(int)
-        self.betas = np.ones(self.K).astype(int)
+        self.reset_bayesian_state()
         self.inv_log_factor = 1 / np.power(np.log(self.T), self.c)
 
     def single_step(self, t):
@@ -98,8 +126,7 @@ class BayesUCBAlgorithm(BaseAlgorithm):
 
         reward = self.bandit_env.sample(action)
 
-        self.alphas[action] += reward
-        self.betas[action] += 1 - reward
+        self.update_bayesian_posterior(action, reward)
 
         return action, reward
 
@@ -107,15 +134,12 @@ class BayesUCBAlgorithm(BaseAlgorithm):
 # ------------------------------------------------
 
 
-class ThompsonSamplingAlgorithm(BaseAlgorithm):
+class ThompsonSamplingAlgorithm(BaseBetaBernoulliAlgorithm):
     def __init__(self, bandit_env):
         super().__init__(bandit_env)
-        self.alphas = np.ones(self.K).astype(int)
-        self.betas = np.ones(self.K).astype(int)
 
     def reset_state(self):
-        self.alphas = np.ones(self.K).astype(int)
-        self.betas = np.ones(self.K).astype(int)
+        self.reset_bayesian_state()
 
     def single_step(self, t):
         theta_hats = np.random.beta(self.alphas, self.betas, size=self.K)
@@ -132,23 +156,20 @@ class ThompsonSamplingAlgorithm(BaseAlgorithm):
 # ------------------------------------------------
 
 
-class VarianceIDSAlgorithm(BaseAlgorithm):
+class VarianceIDSAlgorithm(BaseBetaBernoulliAlgorithm):
     def __init__(self, bandit_env, M, use_argmin=False):
         super().__init__(bandit_env)
         self.M = M  # number of samples for MCMC
         self.use_argmin = use_argmin
-        self.alphas = np.ones(self.K).astype(int)
-        self.betas = np.ones(self.K).astype(int)
         self.thetas = None
 
     def reset_state(self):
-        self.alphas = np.ones(self.K).astype(int)
-        self.betas = np.ones(self.K).astype(int)
+        self.reset_bayesian_state()
         self.thetas = self.__calculate_thetas()
 
     def single_step(self, t):
         # estimated means of action parameters
-        mu = self.alphas / (self.alphas + self.betas)
+        mu = self.get_means()
 
         # max action in each sample
         max_action = np.argmax(self.thetas, axis=0)
@@ -194,8 +215,8 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         reward = self.bandit_env.sample(action)
 
         # Update posterior
-        self.alphas[action] += reward
-        self.betas[action] += 1 - reward
+        self.update_bayesian_posterior(action, reward)
+
         # Resample thetas for updated action only.
         self.thetas[action] = self.__calculate_theta(action)
 
