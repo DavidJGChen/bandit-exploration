@@ -2,16 +2,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from algorithms import RandomAlgorithm, EpsilonGreedyAlgorithm, ThompsonSamplingAlgorithm, BayesUCBAlgorithm, VarianceIDSAlgorithm
+from algorithms import (
+    RandomAlgorithm,
+    EpsilonGreedyAlgorithm,
+    ThompsonSamplingAlgorithm,
+    BayesUCBAlgorithm,
+    VarianceIDSAlgorithm,
+)
 from bandits import BernoulliBanditEnv
 
 # TODO: add command line config
 
 np.set_printoptions(precision=3)
 
-num_trials = 100
+num_trials = 1000
 num_arms = 10
 T = 1000
+
 
 # TODO: move this function somewhere else
 def cumulative_regret(bandit_env, rewards):
@@ -19,6 +26,7 @@ def cumulative_regret(bandit_env, rewards):
     optimal_reward = bandit_env.optimal_mean
     cumulative_reward = np.cumulative_sum(rewards)
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
+
 
 # TODO: refactor this
 methods = [
@@ -30,7 +38,7 @@ methods = [
     # "explore-commit 200",
     # "Bayes UCB",
     "TS",
-    "V-IDS"
+    "V-IDS",
 ]
 
 regret_sums = np.zeros((len(methods), T))
@@ -56,7 +64,7 @@ for _ in tqdm(range(num_trials)):
         VarianceIDSAlgorithm(bandit_env, 10000),
     ]
     # TODO: refactor this
-    assert(len(algorithms) == len(methods))
+    assert len(algorithms) == len(methods)
 
     for i, alg in enumerate(algorithms):
         _, rewards = alg.run(T)
