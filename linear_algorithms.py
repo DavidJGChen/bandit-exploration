@@ -1,5 +1,7 @@
+import scipy.linalg
 from algorithms import BaseBayesianAlgorithm
 import numpy as np
+import scipy
 from scipy.stats import norm
 from scipy.optimize import minimize_scalar
 
@@ -24,8 +26,9 @@ class BaseLinearAlgorithm(BaseBayesianAlgorithm):
         # Assume eta is 1 (standard gaussian noise
         phi_a = self.bandit_env.arms[action].feature
 
-        Sigma_inv = np.linalg.inv(self.Sigma)
-        new_Sigma = np.linalg.inv(Sigma_inv + np.outer(phi_a, phi_a))
+        # For some ungodly reason np.linalg.inv does not work with with multiprocessing
+        Sigma_inv = scipy.linalg.inv(self.Sigma)
+        new_Sigma = scipy.linalg.inv(Sigma_inv + np.outer(phi_a, phi_a))
 
         self.mu_vec = new_Sigma @ (Sigma_inv @ self.mu_vec + reward * phi_a)
         self.Sigma = new_Sigma
@@ -81,13 +84,15 @@ class BayesUCBAlgorithm(BaseLinearAlgorithm):
         self.inv_log_factor = 1 / np.power(np.log(self.T), self.c)
 
     def single_step(self, t):
-        if t < self.K:
-            action = t
-        else:
-            quantile = 1 - (self.inv_log_factor / (t + 1))
-            quantiles = norm.ppf(quantile, loc=self.mus, scale=self.sigmas)
+        quantile = 1 - (self.inv_log_factor / (t + 1))
+        means = self.bandit_env.phi @ self.mu_vec
+        variances = np.sum(
+            np.multiply(self.bandit_env.phi @ self.Sigma, self.bandit_env.phi),
+            axis=1,
+        )
+        quantiles = norm.ppf(quantile, loc=means, scale=np.sqrt(variances))
 
-            action = np.argmax(quantiles)
+        action = np.argmax(quantiles)
 
         reward = self.bandit_env.sample(action)
 
@@ -133,59 +138,71 @@ class VarianceIDSAlgorithm(BaseLinearAlgorithm):
         self.thetas = self.__calculate_thetas()
 
     def single_step(self, t):
-        if t < self.K:
-            action = t
+        # estimated means of action parameters
+        mu_hat = np.mean(self.thetas, axis=1)
+        phi = self.bandit_env.phi
+
+        # max action in each sample
+        max_action = np.argmax(phi @ self.thetas, axis=0)
+
+        # partition the sampled thetas based on which arm is optimal
+        partitioned_thetas = [
+            self.thetas[:, np.where(max_action == a)[0]] for a in range(self.K)
+        ]
+
+        # probability an action is optimal, approximated using number of samples where
+        # it is optimal.
+        p_optimal = (
+            np.array([partitioned_thetas[a].shape[1] for a in range(self.K)]) / self.M
+        )
+
+        # calculate est. mean of actions conditioned on action being optimal.
+        # shape = (K, K). Indexing once (cond_mu[a_star]) gives us an array
+        # of means of all arms conditioned on a_star being optimal.
+        cond_mu = np.nan_to_num(
+            np.array(
+                [
+                    (
+                        np.mean(thetas, axis=1)
+                        if thetas.shape[1] > 0
+                        else np.zeros(self.bandit_env.d)
+                    )
+                    for thetas in partitioned_thetas
+                ]
+            )
+        )
+
+        L_hat = np.sum(
+            [
+                p_optimal[a] * np.outer(cond_mu[a] - mu_hat, cond_mu[a] - mu_hat)
+                for a in range(self.K)
+            ],
+            axis=0,
+        )
+
+        # estimate expected value of optimal action
+        rho = np.sum([p_optimal[a] * phi[a].T @ cond_mu[a] for a in range(self.K)])
+        delta = rho - phi @ mu_hat
+
+        # calculate variance term for each arm as an expectation
+        # variance = np.sum(
+        #     np.array(
+        #         [
+        #             p_optimal[a] * (phi @ (cond_mu[a] - mu_hat)) ** 2
+        #             for a in range(self.K)
+        #         ]
+        #     ),
+        #     axis=0,
+        # )
+
+        variance = np.nan_to_num(
+            np.array([phi[a].T @ L_hat @ phi[a] for a in range(self.K)])
+        )
+
+        if self.use_argmin:
+            action = np.argmin(delta**2 / variance)
         else:
-            # estimated means of action parameters
-            mu = self.get_means()
-
-            # max action in each sample
-            max_action = np.argmax(self.thetas, axis=0)
-
-            # partition the sampled thetas based on which arm is optimal
-            partitioned_thetas = [
-                self.thetas[:, np.where(max_action == a)[0]] for a in range(self.K)
-            ]
-
-            # probability an action is optimal, approximated using number of samples where
-            # it is optimal.
-            p_optimal = (
-                np.array([partitioned_thetas[a].shape[1] for a in range(self.K)])
-                / self.M
-            )
-
-            # calculate est. mean of actions conditioned on action being optimal.
-            # shape = (K, K). Indexing once (cond_mu[a_star]) gives us an array
-            # of means of all arms conditioned on a_star being optimal.
-            cond_mu = np.nan_to_num(
-                np.array(
-                    [
-                        (
-                            np.mean(thetas, axis=1)
-                            if thetas.shape[1] > 0
-                            else np.zeros(self.K)
-                        )
-                        for thetas in partitioned_thetas
-                    ]
-                )
-            )
-
-            # estimate expected value of optimal action
-            rho = np.sum([p_optimal[a] * cond_mu[a, a] for a in range(self.K)])
-            delta = rho - mu
-
-            # calculate variance term for each arm as an expectation
-            variance = np.sum(
-                np.array(
-                    [p_optimal[a] * (cond_mu[a] - mu) ** 2 for a in range(self.K)]
-                ),
-                axis=0,
-            )
-
-            if self.use_argmin:
-                action = np.argmin(delta**2 / variance)
-            else:
-                action = self.__ids_action(delta, variance)
+            action = self.__ids_action(delta, variance)
 
         reward = self.bandit_env.sample(action)
 
@@ -193,20 +210,22 @@ class VarianceIDSAlgorithm(BaseLinearAlgorithm):
         self.update_bayesian_posterior(action, reward)
 
         # Resample thetas for updated action only.
-        self.thetas[action] = self.__calculate_theta(action)
+        self.thetas = self.__calculate_thetas()
 
         if DEBUG:
             print(f"\n--------round {t}--------")
-            print(f"mu:\t\t\t\t{mu}")
-            print(f"times chosen:\t\t\t{self.alphas + self.betas - 2}")
-            for action in range(self.K):
-                print(f"--Assume action {action} is optimal--")
-                print(f"estimated mean of action {action}:\t{mu[action]}")
-                print(f"p_optimal({action}):\t\t\t{p_optimal[action]}")
-                print(f"mean vector given {action} optimal:\t{cond_mu[action]}")
+            print(f"mu:\t\t\t\t{self.mu_vec}")
+            # print(f"times chosen:\t\t\t{self.alphas + self.betas - 2}")
+            for a in range(self.K):
+                print(f"--Assume action {a} is optimal--")
+                print(f"mean of action {a}:\t{self.bandit_env.arms[a].mean}")
+                print(f"p_optimal({a}):\t\t\t{p_optimal[a]}")
+                print(f"mean vector given {a} optimal:\t{cond_mu[a]}")
+                print(f"est reward given {a} optimal:\t{phi[a] @ cond_mu[a]}")
             print(f"---more stats---")
             print(f"rho_star:\t\t\t{rho}")
             print(f"delta vector:\t\t\t{delta}")
+            print(f"L_hat:\t\t\t{L_hat}")
             print(f"variance:\t\t\t{variance}")
             print(f"info ratio:\t\t\t{delta**2 / variance}")
             print(f"action chosen:\t\t\t{action}")
@@ -232,7 +251,4 @@ class VarianceIDSAlgorithm(BaseLinearAlgorithm):
         return min_pair[0] if np.random.random() < q_min else min_pair[1]
 
     def __calculate_thetas(self):
-        return np.array([self.__calculate_theta(action) for action in range(self.K)])
-
-    def __calculate_theta(self, action):
-        return np.random.normal(self.mus[action], self.sigmas[action], size=self.M)
+        return np.random.multivariate_normal(self.mu_vec, self.Sigma, size=self.M).T

@@ -42,8 +42,8 @@ from bandits import (
 
 # TODO: add command line config
 
-num_trials = 1000
-num_arms = 10
+num_trials = 3
+num_arms = 30
 T = 1000
 
 
@@ -61,12 +61,12 @@ methods = [
     # "greedy",
     # "e-greedy 0.1",
     # "e-greedy 0.2",
-    # "e-greedy decay",
+    "e-greedy decay",
     # "explore-commit 200",
-    # "Bayes UCB",
+    "Bayes UCB",
     "TS",
     # "V-IDS",
-    # "V-IDS argmin",
+    "V-IDS argmin",
 ]
 
 
@@ -77,7 +77,7 @@ def trial(_):
     # bandit_env = BernoulliBanditEnv(num_arms)
     # bandit_env = GaussianBanditEnv(num_arms)
     # bandit_env = PoissonBanditEnv(num_arms)
-    bandit_env = LinearBanditEnv(num_arms)
+    bandit_env = LinearBanditEnv(num_arms, d=5)
 
     # print("theta:")
     # print(bandit_env.theta)
@@ -89,12 +89,12 @@ def trial(_):
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.0),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.1),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
-        # EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
+        EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
         # EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
-        # BayesUCBAlgorithm(bandit_env, 0),
+        BayesUCBAlgorithm(bandit_env, 0),
         ThompsonSamplingAlgorithm(bandit_env),
         # VarianceIDSAlgorithm(bandit_env, 10000),
-        # VarianceIDSAlgorithm(bandit_env, 10000, use_argmin=True),
+        VarianceIDSAlgorithm(bandit_env, 10000, use_argmin=True),
     ]
     # TODO: refactor this
     assert len(algorithms) == len(methods)
@@ -124,22 +124,24 @@ if __name__ == "__main__":
         plt.plot(regret_sums[i] / num_trials, label=methods[i])
     # plt.xlim(left=0, right=T)
     # plt.ylim(bottom=0, top=120)
-    plt.title("beta-Bernoulli Bandit")
+    plt.title("Linear Gaussian Bandit")
     plt.xlabel("iteration")
     plt.ylabel("cumulative regret")
     # plt.yscale("log")
     # plt.xscale("log")
     plt.legend()
+    plt.savefig("test.png")
     plt.show()
 
     for i in range(len(methods)):
         plt.plot(regret_sums[i] / num_trials, label=methods[i])
     # plt.xlim(left=0, right=T)
     # plt.ylim(bottom=0, top=120)
-    plt.title("beta-Bernoulli Bandit")
+    plt.title("Linear Gaussian Bandit")
     plt.xlabel("iteration (log)")
     plt.ylabel("cumulative regret (log)")
     plt.yscale("log")
     plt.xscale("log")
     plt.legend()
+    plt.savefig("test2.png")
     plt.show()

@@ -77,6 +77,9 @@ class PoissonBanditEnv(BaseBanditEnv):
 
 
 class LinearBanditEnv(BaseBanditEnv):
+    def __init__(self, K, d):
+        self.d = d
+        super().__init__(K)
 
     class LinearArm(BaseArm):
         def __init__(self, feature, theta):
@@ -87,7 +90,6 @@ class LinearBanditEnv(BaseBanditEnv):
             return self.mean + np.random.standard_normal()
 
     def initialize_arms(self):
-        self.d = 5  # hardcoded for now
         mean_vec = np.zeros(self.d)
         covariance = 10 * np.eye(self.d)
         feature_radius = 1 / np.sqrt(5)
@@ -95,6 +97,5 @@ class LinearBanditEnv(BaseBanditEnv):
         features = np.random.uniform(
             -feature_radius, feature_radius, size=(self.K, self.d)
         )
-        arms = [self.LinearArm(feature, self.theta) for feature in features]
         self.phi = features
-        return arms
+        return [self.LinearArm(feature, self.theta) for feature in features]
