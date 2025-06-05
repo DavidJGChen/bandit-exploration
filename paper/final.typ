@@ -1,8 +1,6 @@
 #import "@preview/charged-ieee:0.1.3": ieee
 #import "@local/david:1.0.0": *
 
-#set math.equation(numbering: none)
-
 #show: ieee.with(
   title: [CS 221 Project Final Report:\ Exploring Bandit Algorithms],
   authors: (
@@ -19,6 +17,8 @@
     This report outlines an ongoing project on exploring bandit algorithms within the classic stochastic multi-armed bandit framework. The project's goal is to provide a comprehensive comparison of algorithms through reproduction of existing empirical analysis of regret and runtime, qualitative observations of behavior, and theoretical comparison of proven regret bounds. To date, a simulation framework has been developed and populated with algorithms such as random, $epsilon$-greedy, explore-then-commit, Bayes-UCB, and Thompson sampling, with preliminary evaluations conducted in the beta-Bernoulli bandit setting. Future work will expand the analysis to include additional settings with more complex information structure, alongside the implementation and evaluation of more advanced algorithms such as information-directed sampling (IDS).
   ]
 )
+
+#set math.equation(numbering: none)
 
 = Introduction
 
@@ -198,10 +198,13 @@ Empirical performance of an algorithm can be complemented with theoretical resul
 These can vary between different settings, and often settings with more structure and more ways to gather data can lead to provably better bounds than the more general case. Indeed, it is possible to show that in settings with more feedback, such as either full or partial feedback, that an algorithm such as IDS will accumulate less regret, theoretically, than algorithms that do not take advantage of this information.
 
 In this section, I compare the upper bounds on regret for the algorithms I implemented for simulation. For all results, I assume that rewards are bounded (by $0$ and $1$ for simplicity).
+- _random and greedy:_
+
+  These can be considered special suboptimal cases of $epsilon$-greedy, and have cumulative regret that scales linearly with time. See below.
 -
   _$epsilon$-greedy:_
   
-  Depending on the value of $epsilon$, the regret can vary from linear in time to sublinear. If we choose a constant $0 < epsilon < 1$, we can see how linear cumulative regret can arise. If, over a time horizon $T$, we take a completely random action for about $epsilon T$ rounds. That itself gives us an upper bound on regret, and it is clearly linear.
+  Depending on the value of $epsilon$, the regret can vary from linear in time to sublinear. If we choose a constant $0 < epsilon <= 1$, we can see how linear cumulative regret can arise. If, over a time horizon $T$, we take a completely random action for about $epsilon T$ rounds. That itself gives us an upper bound on regret, and it is clearly linear.
 
   However, for a value of $epsilon$ that decreases over time, such as $epsilon = t^(-1 slash 3) dot (K log t)^(1 slash 3)$, we can prove the following sublinear regret bound:
   $
@@ -211,67 +214,85 @@ In this section, I compare the upper bounds on regret for the algorithms I imple
 
   Fix round $t$, and define the clean event for a given arm as the following:
   $
-    abs(macron(mu)_t (a) - mu(a)) <= sqrt((2 K log t)/(t epsilon_t)).
+    abs(macron(mu)_t (a) - mu(a)) <= sqrt((2 K log t)/(t epsilon_t)) = r_t (a),
   $
-  $macron(mu)(a)$ is the current estimate of the mean of arm $a$. Note we cannot apply Hoeffding's inequality immediately, given that the number of times we choose $a$ is not fixed, and may even not be independent from the samples of $a$.
-  To fix this, we can just let $v_j (a)$ be the average of the first $j$ times we choose $a$, regardless of $t$ or the actual number of times we choose $a$.
+  where $macron(mu)(a)$ is the current estimate of the mean of arm $a$, and $mu(a)$ is the true mean.
+  On average, we end up exploring any given arm around $(t epsilon_t)/K$ times by round $t$.
+  Note we cannot apply Hoeffding's inequality immediately, given that the number of times we choose $a$ is not fixed, and may even not be independent from the samples of $a$.
+  To fix this, we can just let $v_j (a)$ be the average of the first $j$ times we would have chosen $a$, regardless of $t$ or the actual number of times we choose $a$.
 
-  Now we can apply Hoeffding's inequality, and we get the following:
+  With this independence fix, now we can apply Hoeffding's inequality.
+  We get the following:
   $
     forall j, quad PP(abs(v_j (a) - mu(a)) <= r_t (a)) >= 1 - 2/t^4.
   $
-  We can then proceed by taking two union bounds, one over all $j$, and then one over all actions. This results in the following;
+  We can then proceed by taking two union bounds, one over all $j$, and then one over all actions. Assuming the current round $t$ is more than the number of arms $K$, This results in the following:
   $
     PP(forall a, med med abs(macron(mu)_t (a) - mu(a)) <= r_t (a)) >= 1 - 2/t^2.
   $
-  Let's call this union of clean events for all arms *the* clean event.
+  Let's call this union of clean events for all arms *the* clean event, and assume it for the rest of the proof.
   Now assume that for round $t$, we do not explore, and we instead exploit arm $a$. In the worst case, we do not choose the optimal arm $a^*$. Then we have the following bound on the instantaneous regret:
   $
-    mu (a) + r_t (a) >=\
-    macron(mu)_t (a) > macron(mu)_t (a^*) >= mu (a^*) - r_t (a^*)
+    mu (a) + r_t (a) &>= macron(mu)_t (a) > macron(mu)_t (a^*)\
+    &>= mu (a^*) - r_t (a^*),
   $
+  which we can rearrange to get:
+  $
+    mu (a^*) - mu (a) < r_t (a) + r_t (a^*) = O (sqrt((K log t)/(t epsilon_t))).
+  $
+  The probability of exploring is $epsilon_t$, and the instantaneous regret is upper bounded by $1$, so therefore we have:
+  $
+    EE[Regret(t, pi_(epsilon)) mid(bar) "clean"] &= epsilon_t + (1 - epsilon_t) dot O (sqrt((K log t)/(t epsilon_t)))\
+    &<= epsilon_t + (sqrt((K log t)/(t epsilon_t)))\
+    &<= O(T^(2 slash 3) dot (K log T)^(1 slash 3)),
+  $
+  where the last inequality is a result of plugging in the value for $epsilon_t$.
 
+  The probability of the "non-clean" event is $O(t^(-2))$, and the total possible regret in that scenario is $t$. So we can safely ignore the "non-clean" event.
+  Therefore, for all $t$, including $T$, we have our result. $qed$
 
+  This proof was re-derived from scratch, and was originally given as exercise 1.2 from Slivkin's book @intro-bandits.
 
-ep greedy
+- _Bayes UCB:_
 
-Thompson sampling
+  Kaufmann et al. proved @kaufmann12 in the beta-Bernoulli case that regret is upper-bounded such that:
+  $
+    EE[Regret(T, pi_"TS")] <= tilde(O)(sqrt(K T)),
+  $
+  where $tilde(O)$ indicates that logarithmic factors are ignored.
 
-BayesUCB
+- _Thompson sampling and IDS:_
 
-Explore then commit
+  Thompson sampling under bandit feedback was proven in Russo and Van Roy @itats to have the following regret bound:
+  $
+    EE[Regret(T, pi_"TS")] <= sqrt(1/2 K H(A^*) T).
+  $
+  Furthermore, in a setting such as the linear bandit problem, it was shown to have the improved bound:
+  $
+    EE[Regret(T, pi_"TS")] <= sqrt(1/2 log(K) d T).
+  $
+  Russo and Van Roy showed @IDS that information-directed sampling shares the same regret bounds. However, as we will soon see, it often outperforms Thompson sampling in practice.
 
-IDS variance lower bound
+  In addition, replacing the information gain in the information ratio with the aforementioned variance of conditional expected rewards results in the same upper bounds on cumulative regret.
 
 = Results and Discussion
 
-Through a round of preliminary simulations, I am able to successfully reproduce results similar to existing experimental results from Russo and Van Roy @IDS. For the algorithms not included in prior simulations, namely the non-adaptive exploration algorithms, I observe noticably higher regret for this horizon. Interestingly, within this interval, $epsilon$-greedy with exponential decay seems to perform worse than constant $epsilon$-greedy. Indeed, checking the $epsilon_t$ factor, I find that $epsilon_t$ decays to $0.1$ only after the $1000$th time-step, at which point the slope of the regret curve seems to become more shallow than constant $epsilon$-greedy with $epsilon = 0.1$. Past $T=2000$, I believe that $epsilon$-greedy with decay should have lower cumulative regret, and further analysis to characterize this trend may be interesting.
-
-Explore-then-commit exhibits a very different regret curve, as it is essentially fully random for $200$ time-steps before switching to fully greedy. The slope of the regret curve is initially much shallower than the other algorithms at $t = 200$, and further analysis of the exact behavior and slope of the regret curve would also be interesting to investigate. For any instance of the problem, the cumulative regret is equivalent to the probability that the optimal action is correctly identified after the exploration period, and if not, the average difference in reward between the actual chosen action and the optimal one.
-#figure(
-  image("fig4.png"),
-  caption: [
-    The average cumulative regret over $T=2000$ for beta-Bernoulli problems with $10$ arms. $"# trials" = N = 2000$.
-  ]
-) <beta-bernoulli-regret>
+I now present a series of 
 
 = Error Analysis
 
 = Future Work
 
-To summarize concisely the planned work to be done after the submission of this progress report:
-- Additional settings
-  - Independent Gaussian
-  - Independent Poisson
-  - Linear Gaussian
-- Additional algorithms
-  - IDS
-  - Variance-based IDS
-  - Other UCB algorithms
-- Additional analysis
-  - Selection and derivation of key regret results
-  - Comparison with simulation
-  - Runtime analysis
+incorporating standard error into results
+
+Further look at arg-min vs solving the optimization problem for IDS
+
+Further work to clean up code base
+
+Investigating paper "ALIGNING AI AGENTS VIA
+INFORMATION-DIRECTED SAMPLING" and potentially expand upon or improve results.
+
+
 
 = Ethical Considerations
 
