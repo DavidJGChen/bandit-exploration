@@ -61,7 +61,7 @@ methods = [
     # "greedy",
     # "e-greedy 0.1",
     # "e-greedy 0.2",
-    # "e-greedy decay",
+    "e-greedy decay",
     # "explore-commit 200",
     "Bayes UCB",
     "TS",
@@ -89,7 +89,7 @@ def trial(_):
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.0),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.1),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
-        # EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
+        EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
         # EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
         BayesUCBAlgorithm(bandit_env, 0),
         ThompsonSamplingAlgorithm(bandit_env),
@@ -130,11 +130,16 @@ if __name__ == "__main__":
     # plt.yscale("log")
     # plt.xscale("log")
     plt.legend()
-    plt.savefig("test.png")
+    plt.savefig("output.png")
     plt.show()
 
     for i in range(len(methods)):
         plt.plot(regret_sums[i] / num_trials, label=methods[i])
+
+    # lines for comparison
+    x = np.arange(1, T)
+    y = 8 * np.sqrt(x)
+    plt.plot(x, y, "k--")
     # plt.xlim(left=0, right=T)
     # plt.ylim(bottom=0, top=120)
     plt.title("Linear Gaussian Bandit")
@@ -143,5 +148,5 @@ if __name__ == "__main__":
     plt.yscale("log")
     plt.xscale("log")
     plt.legend()
-    plt.savefig("test2.png")
+    plt.savefig("output_log.png")
     plt.show()

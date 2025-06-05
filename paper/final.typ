@@ -277,7 +277,7 @@ In this section, I compare the upper bounds on regret for the algorithms I imple
 
 = Results and Discussion
 
-I now present a series of 
+I now present a series of simulation results which 
 
 = Error Analysis
 
@@ -295,5 +295,11 @@ INFORMATION-DIRECTED SAMPLING" and potentially expand upon or improve results.
 
 
 = Ethical Considerations
+
+Bandits present an ethical and societal risk given their tendency to pillage and loot innocent villagers and passerbys, often through violent means. As seen in popular media, a bandit lives a life of crime, similar to that of a pirate @onepiece.
+
+On the other hand, the ethical and societal risks of multi-armed bandits are not so obvious.
+
+Provide a 1-2 paragraph statement outlining at least one ethical issue or societal risk specific to your project, with an explanation of what in particular connects your project to the ethical issue(s) or societal risk(s) raised. Subsequently, you also need to explain at least 1 possible mitigation strategy for each of those issues (e.g. technical modifications, policy changes, or specific model deployment measures). Note that you are not required to implement these mitigation strategies in your final project. 
 
 #pagebreak()
