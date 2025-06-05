@@ -13,8 +13,7 @@
   bibliography: bibliography("refs.bib"),
   figure-supplement: [Fig.],
   abstract: [
-    #TODO[change this shit boy]
-    This report outlines an ongoing project on exploring bandit algorithms within the classic stochastic multi-armed bandit framework. The project's goal is to provide a comprehensive comparison of algorithms through reproduction of existing empirical analysis of regret and runtime, qualitative observations of behavior, and theoretical comparison of proven regret bounds. To date, a simulation framework has been developed and populated with algorithms such as random, $epsilon$-greedy, explore-then-commit, Bayes-UCB, and Thompson sampling, with preliminary evaluations conducted in the beta-Bernoulli bandit setting. Future work will expand the analysis to include additional settings with more complex information structure, alongside the implementation and evaluation of more advanced algorithms such as information-directed sampling (IDS).
+    This report outlines an ongoing project on exploring bandit algorithms within the classic stochastic multi-armed bandit framework. The project's goal is to provide a comprehensive comparison of algorithms through reproduction of existing empirical analysis of regret and runtime, qualitative observations of behavior, and theoretical comparison of proven regret bounds. To date, a simulation framework has been developed and populated with algorithms such as random, $epsilon$-greedy, explore-then-commit, Bayes-UCB, Thompson sampling, and information-directed sampling, with a set of empirical results conducted in various independent and linear bandit settings.
   ]
 )
 
@@ -277,29 +276,167 @@ In this section, I compare the upper bounds on regret for the algorithms I imple
 
 = Results and Discussion
 
-I now present a series of simulation results which 
+I now present a series of simulation results which serve as the main result of my exploration for this project. I first display figures displaying cumulative regret with repsect to time, and additionally, I display those same results but with both axes in log scale to further illustrate the relation of the regret with time.
+
+All simulations are run for 2000 trials, with $K=30$, and 2000 timesteps except when otherwise specified.
+
+== Independent Beta-Bernoulli
+
+For Bernoulli bandits, I first present all algorithms on one graph, and then focus on only Thompson sampling, Bayes UCB, and V-IDS for further figures and settings.
+#figure(
+  image("../images/beta_bernoulli_all.png"),
+  caption: [
+    Full comparison over all algorithms in the independent Bernoulli setting.
+    For clarity, future figures omit most of the baseline algorithms.
+  ]
+) <full-comp>
+#figure(
+  image("../images/beta_bernoulli_all_log.png"),
+  caption: [
+    Log scale view of @full-comp.
+    The dotted line has a slope of $1/2$, and represents a function that scales like square root of time.
+  ]
+)
+In the log-scale figure, it is easy to compare the slopes of the cumulative regret plots with the given reference function. The algorithms with linear regret (random, greedy, constant e-greedy) have slopes of $1$. The algorithms with regret that scales with square root of time (or better) have slops of $1/2$ or lower.
+
+For clarity, I present just four algorithms in a separate figure:
+
+#figure(
+  image("../images/beta_bernoulli.png"),
+  caption: [
+    Comparison of algorithms in the independent Bernoulli setting.
+  ]
+) <bernoulli>
+#figure(
+  image("../images/beta_bernoulli_log.png"),
+  caption: [
+    Log scale view of @bernoulli.
+  ]
+)
+
+== Independent Gaussian
+
+#figure(
+  image("../images/gaussian.png"),
+  caption: [Comparison in the independent Gaussian setting.]
+) <gaussian>
+#figure(
+  image("../images/gaussian_log.png"),
+  caption: [
+    Log scale view of @gaussian. Note the exaggerated change in slope due to an initial pass over all unchosen actions.
+  ]
+) <gaussian-log>
+
+== Independent Gamma-Poisson
+
+#figure(
+  image("../images/poisson.png"),
+  caption: [
+    Comparison in the independent Poisson setting. Note that compared to other settings, the regret observed can be higher even with $lambda = 1$.
+  ]
+) <poisson>
+#figure(
+  image("../images/poisson_log.png"),
+  caption: [
+    Log scale view of @poisson.
+  ]
+)
+
+== Linear Gaussian
+
+#figure(
+  image("../images/linear.png"),
+  caption: [Comparison in the linear bandit setting.]
+) <linear>
+#figure(
+  image("../images/linear_log.png"),
+  caption: [
+    Log scale view of @linear.
+  ]
+)
 
 = Error Analysis
 
+== Note on computation time
+
+The linear bandit setting was much more compuationally demanding, given the introduction of a dimension $d$, and the need to invert matrices during the posterior update.
+
+It is especially demanding for V-IDS implemented with MCMC sampling, since there is a need to generate $M$ samples from a multivariate gaussian distribution.
+
+For this reason, the time horizon for calculation was limited to just 250 steps. Even with this limitation, it seems to be the case that V-IDS is marginally better than Thompson sampling and Bayes UCB.
+
+Compared to the original paper @IDS, For the computationally heavy setting with $K=100$ and $d = 30$, I was able to acheive $0.015$ seconds per decision for V-IDS, and around $0.00005$ seconds (about $50$ #math.mu\s) per decision for Thompson sampling.
+
+For the other settings, I was able to run simulations in parallel on 16 cores (MacBook Pro M4 Max), completing full sets of simulations in under 10 minutes per run. However, for linear bandits, I ran into issues with parallelization and was unable to debug it in time.
+
+== V-IDS v.s. V-IDS with argmin
+
+In the work introducing IDS @IDS, it was mentioned that any algorithm that has "nearly" minimal information ratio still satisfies strong regret bounds.
+
+During implementation of V-IDS, I noticed that when optimizing for a policy that produces a probability distribution between two actions, that it was often the case that one action was assigned much higher probability. I changed the action selection mechanism to use a simple argmin over information ratio, and saw that the behavior between V-IDS and V-IDS with argmin was nearly the same.
+#figure(
+  image("../images/argmin.png"),
+  caption: [V-IDS using typical IDSAction selection compared against V-IDS using a simple minimization over information ratios for each arm.]
+) <vids-vs-vidsargmin>
+#figure(
+  image("../images/argmin_log.png"),
+  caption: [Log scale of @vids-vs-vidsargmin.]
+)
+This suggests that at least for the beta-Bernoulli setting in simulation, the performance of the two policies are nearly identical, while the argmin operation takes a fraction of the time that the full IDSAction optimization would take.
+
+== scipy v.s. CVXPY
+
+When selecting an optimization library for IDSAction, I originally intended on using CVXPY.
+However, given my inexperience with convex optimization, I kept on running into issues formulating the problem correctly.
+I ended up using `scipy.optimize.minimize_scalar` instead.
+
+Online discussion suggests that CVXPY may be more efficient in some cases, and for that reason, I believe that my implementation of IDSAction was not the most efficient.
+
+In the future, I may attempt to implement my own optimization algorithm here, given the relatively simple formulation and solutions.
+
 = Future Work
 
-incorporating standard error into results
+There is much work to do, and I am excited to continue my exploration and development over the summer!
 
-Further look at arg-min vs solving the optimization problem for IDS
+== Codebase
 
-Further work to clean up code base
+Given the time constraints, the codebase itself is in a dismal state, and is not up to my standards.
+There are a number of TODOs that I wish to improve upon for the code organization, as well as other improvements such as typing, command-line arguments, result and figure saving, etc.
 
-Investigating paper "ALIGNING AI AGENTS VIA
-INFORMATION-DIRECTED SAMPLING" and potentially expand upon or improve results.
+== Further implementation
 
+As mentioned in the error analysis section, I wish to implement optimization on my own, as well as implement it using CVXPY in order to compare performance in the IDSAction step.
+I also wish to further improve my implementation of my parallelization, in order to continually improve upon the simulation performance.
 
+== Theoretical exploration
+
+Personally, I wish to fully immerse myself in relavent bandit literature over the summer.
+This includes reviewing notes on probability theory, statistics, information theory, bandit textbooks, as well as important papers.
+For example, one paper I could take a closer look at is "Aligning AI Agents via Information-Directed Sampling" from Jeon and Van Roy @jeon2024, where there is a noticable gap between the proven theoretical results and empirical simulation results.
 
 = Ethical Considerations
 
 Bandits present an ethical and societal risk given their tendency to pillage and loot innocent villagers and passerbys, often through violent means. As seen in popular media, a bandit lives a life of crime, similar to that of a pirate @onepiece.
 
 On the other hand, the ethical and societal risks of multi-armed bandits are not so obvious.
+One example from my personal experience is with the relationship of MABs and related algorithms to those of recommendation and ranking systems present in the industry.
+Prior to Stanford, I spent time on the Facebook notifications team as well as the Facebook feed team, where I firsthand witnessed the potential of these algorithms for maximizing user engagement.
+In this case, maximizing reward was analgous to encouraging certain behaviors that increased topline metrics, such as sending certain notifications at specific times in order to get users to enter the app.
+However, this one-dimensional view of "reward" leaves out many potentially harmful side-effects.
+Some prominent issues that can be exacerbated by this sort of optimization in the notification space are: social media addiction, notification quality degradation, notification "blindness", loss of user trust, etc.
 
-Provide a 1-2 paragraph statement outlining at least one ethical issue or societal risk specific to your project, with an explanation of what in particular connects your project to the ethical issue(s) or societal risk(s) raised. Subsequently, you also need to explain at least 1 possible mitigation strategy for each of those issues (e.g. technical modifications, policy changes, or specific model deployment measures). Note that you are not required to implement these mitigation strategies in your final project. 
+Potential mitigation strategies for these issues can involve modifying the objective of the algorithms to explicitly include metrics that measure the above risks.
+
+Other strategies can involve setting up other algorithms or systems to constrain and double-check the actions output by the algorithms in question.
+
+Finally, another potentially effective measure would be policy changes or education on the industry itself, whether through widespread legislation or through shifts in individual company culture, to prioritize user experience and wellbeing over pure metric shifts.
+
+$
+  a^top theta + cal(N)(0,1)
+$
+
+= Code and Project Summary Video
+
+Code is linked on my #link("google.com")[github (google.com)], and video is linked on my #link("https://youtu.be/0YxQ1Wj4P_I")[YouTube (youtu.be/0YxQ1Wj4P_I).]
 
 #pagebreak()
