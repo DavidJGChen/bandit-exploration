@@ -435,4 +435,9 @@ Finally, another potentially effective measure would be policy changes or educat
 
 Code is linked on my #link("https://github.com/DavidJGChen/bandit-exploration")[github (github.com/DavidJGChen/bandit-exploration)], and video is linked on my #link("https://youtu.be/0YxQ1Wj4P_I")[YouTube (youtu.be/0YxQ1Wj4P_I).]
 
+= Acknowledgements
+
+I would like to thank Hong Jun Jeon for encouraging me to explore a bandit related project, even when I wasn't confident in myself.
+His detailed feedback as I worked my way through papers was immensely useful, and I hope to work on my own theoretical work one day.
+
 #pagebreak()
