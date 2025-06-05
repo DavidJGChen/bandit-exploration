@@ -431,12 +431,8 @@ Other strategies can involve setting up other algorithms or systems to constrain
 
 Finally, another potentially effective measure would be policy changes or education on the industry itself, whether through widespread legislation or through shifts in individual company culture, to prioritize user experience and wellbeing over pure metric shifts.
 
-$
-  a^top theta + cal(N)(0,1)
-$
-
 = Code and Project Summary Video
 
-Code is linked on my #link("google.com")[github (google.com)], and video is linked on my #link("https://youtu.be/0YxQ1Wj4P_I")[YouTube (youtu.be/0YxQ1Wj4P_I).]
+Code is linked on my #link("https://github.com/DavidJGChen/bandit-exploration")[github (github.com/DavidJGChen/bandit-exploration)], and video is linked on my #link("https://youtu.be/0YxQ1Wj4P_I")[YouTube (youtu.be/0YxQ1Wj4P_I).]
 
 #pagebreak()
