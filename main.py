@@ -42,7 +42,7 @@ from bandits import (
 
 # TODO: add command line config
 
-num_trials = 1000
+num_trials = 100
 num_arms = 10
 T = 1000
 
