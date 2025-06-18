@@ -18,7 +18,7 @@ from base_algorithms import (
     EpsilonGreedyAlgorithm,
     ThompsonSamplingAlgorithm,
     BayesUCBAlgorithm,
-    # VarianceIDSAlgorithm,
+    VarianceIDSAlgorithm,
 )
 
 from bandits import (
@@ -32,7 +32,8 @@ from bandits import (
 # TODO: add command line config
 
 num_trials = 100
-T = 1000
+num_processes = 1
+T = 500
 V_IDS_samples = 10000
 
 num_arms = 10
@@ -58,28 +59,23 @@ bandit_env_name = "Beta-Bernoulli Bandit"
 bandit_env_config = bandit_env_configs[bandit_env_name]
 
 algorithms: list[tuple[str, type[BaseAlgorithm], dict]] = [
-    ("random", RandomAlgorithm, {}),
-    ("greedy", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.0}),
-    ("e-greedy 0.2", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.2}),
-    (
-        "e-greedy decay",
-        EpsilonGreedyAlgorithm,
-        {"epsilon_func": lambda t: np.power(t + 1, -1 / 3)},
-    ),
-    (
-        "explore-commit 200",
-        EpsilonGreedyAlgorithm,
-        {"epsilon_func": lambda t: 1.0 if t < 200 else 0.0},
-    ),
+    # ("random", RandomAlgorithm, {}),
+    # ("greedy", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.0}),
+    # ("e-greedy 0.2", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.2}),
+    # (
+    #     "e-greedy decay",
+    #     EpsilonGreedyAlgorithm,
+    #     {"epsilon_func": lambda t: np.power(t + 1, -1 / 3)},
+    # ),
+    # (
+    #     "explore-commit 200",
+    #     EpsilonGreedyAlgorithm,
+    #     {"epsilon_func": lambda t: 1.0 if t < 200 else 0.0},
+    # ),
     ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
     ("TS", ThompsonSamplingAlgorithm, {}),
-    # ("V-IDS", VarianceIDSAlgorithm, V_IDS_samples)),
-    # (
-    #     "V-IDS argmin",
-    #     VarianceIDSAlgorithm(
-    #         bandit_env, bayesian_state, V_IDS_samples, use_argmin=True
-    #     ),
-    # ),
+    ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
+    ("V-IDS argmin", VarianceIDSAlgorithm, {"M": V_IDS_samples, "use_argmin": True}),
 ]
 num_algs = len(algorithms)
 
@@ -124,7 +120,7 @@ if __name__ == "__main__":
     regret_sums = np.zeros((num_algs, T))
     regret_sq_sums = np.zeros((num_algs, T))
 
-    with Pool(processes=None) as pool:
+    with Pool(processes=num_processes) as pool:
         it = pool.imap(trial, range(num_trials))
         for r, r_s in tqdm(it, total=num_trials, smoothing=0.1):
             regret_sums += r

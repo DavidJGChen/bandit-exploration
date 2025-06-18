@@ -1,6 +1,6 @@
 from collections.abc import Callable
 from abc import ABC, abstractmethod
-from bandits import BaseBanditEnv
+from bandits import BaseBanditEnv, LinearBanditEnv
 from bayesian_state import BaseBayesianState
 from numpy.typing import NDArray
 from numpy import float64, int_
@@ -159,103 +159,152 @@ class ThompsonSamplingAlgorithm(BaseAlgorithm):
 
 # ------------------------------------------------
 
-"""
+
 class VarianceIDSAlgorithm(BaseAlgorithm):
-    def __init__(self, bandit_env, M, use_argmin=False):
-        super().__init__(bandit_env)
+    thetas: NDArray[float64]
+
+    def __init__(
+        self,
+        bandit_env: BaseBanditEnv,
+        bayesian_state: BaseBayesianState,
+        M,
+        use_argmin=False,
+    ):
+        super().__init__(bandit_env, bayesian_state)
         self.M = M  # number of samples for MCMC
         self.use_argmin = use_argmin
-        self.rates = None
+        # Not the best way to do this, but need this hack for now.
+        self.is_linear = type(bandit_env) is LinearBanditEnv
 
     def reset_algorithm_state(self):
-        self.reset_bayesian_state()
         self.thetas = self.__calculate_thetas()
 
     def single_step(self, t):
         if t < self.K:
-            action = t
+            action = np.int_(t)
         else:
             # estimated means of action parameters
-            mu = self.get_means()
+            if self.is_linear:
+                # estimated means of action parameters
+                mu_hat = np.mean(self.thetas, axis=1)
+                phi = self.bandit_env.phi
 
-            # max action in each sample
-            max_action = np.argmax(self.thetas, axis=0)
+                # max action in each sample
+                max_action = np.argmax(phi @ self.thetas, axis=0)
 
-            # partition the sampled thetas based on which arm is optimal
-            partitioned_thetas = [
-                self.thetas[:, np.where(max_action == a)[0]] for a in range(self.K)
-            ]
+                # partition the sampled thetas based on which arm is optimal
+                partitioned_thetas = [
+                    self.thetas[:, np.where(max_action == a)[0]] for a in range(self.K)
+                ]
 
-            # probability an action is optimal, approximated using number of samples where
-            # it is optimal.
-            p_optimal = (
-                np.array([partitioned_thetas[a].shape[1] for a in range(self.K)])
-                / self.M
-            )
-
-            # calculate est. mean of actions conditioned on action being optimal.
-            # shape = (K, K). Indexing once (cond_mu[a_star]) gives us an array
-            # of means of all arms conditioned on a_star being optimal.
-            cond_mu = np.nan_to_num(
-                np.array(
-                    [
-                        (
-                            np.mean(thetas, axis=1)
-                            if thetas.shape[1] > 0
-                            else np.zeros(self.K)
-                        )
-                        for thetas in partitioned_thetas
-                    ]
+                # probability an action is optimal, approximated using number of samples where
+                # it is optimal.
+                p_optimal = (
+                    np.array([partitioned_thetas[a].shape[1] for a in range(self.K)])
+                    / self.M
                 )
-            )
 
-            # estimate expected value of optimal action
-            rho = np.sum([p_optimal[a] * cond_mu[a, a] for a in range(self.K)])
-            delta = rho - mu
+                # calculate est. mean of actions conditioned on action being optimal.
+                # shape = (K, K). Indexing once (cond_mu[a_star]) gives us an array
+                # of means of all arms conditioned on a_star being optimal.
+                cond_mu = np.nan_to_num(
+                    np.array(
+                        [
+                            (
+                                np.mean(thetas, axis=1)
+                                if thetas.shape[1] > 0
+                                else np.zeros(self.bandit_env.d)
+                            )
+                            for thetas in partitioned_thetas
+                        ]
+                    )
+                )
 
-            # calculate variance term for each arm as an expectation
-            variance = np.sum(
-                np.array(
-                    [p_optimal[a] * (cond_mu[a] - mu) ** 2 for a in range(self.K)]
-                ),
-                axis=0,
-            )
+                L_hat = np.sum(
+                    [
+                        p_optimal[a]
+                        * np.outer(cond_mu[a] - mu_hat, cond_mu[a] - mu_hat)
+                        for a in range(self.K)
+                    ],
+                    axis=0,
+                )
+
+                # estimate expected value of optimal action
+                rho = np.sum(
+                    [p_optimal[a] * phi[a].T @ cond_mu[a] for a in range(self.K)]
+                )
+                delta = rho - phi @ mu_hat
+
+                variance = np.nan_to_num(
+                    np.array([phi[a].T @ L_hat @ phi[a] for a in range(self.K)])
+                )
+            else:
+                mu = self.bayesian_state.get_means()
+                # max action in each sample
+                max_action = np.argmax(self.thetas, axis=0)
+
+                # partition the sampled thetas based on which arm is optimal
+                partitioned_thetas = [
+                    self.thetas[:, np.where(max_action == a)[0]] for a in range(self.K)
+                ]
+
+                # probability an action is optimal, approximated using number of samples where
+                # it is optimal.
+                p_optimal = (
+                    np.array([partitioned_thetas[a].shape[1] for a in range(self.K)])
+                    / self.M
+                )
+
+                # calculate est. mean of actions conditioned on action being optimal.
+                # shape = (K, K). Indexing once (cond_mu[a_star]) gives us an array
+                # of means of all arms conditioned on a_star being optimal.
+                cond_mu = np.nan_to_num(
+                    np.array(
+                        [
+                            (
+                                np.mean(thetas, axis=1)
+                                if thetas.shape[1] > 0
+                                else np.zeros(self.K)
+                            )
+                            for thetas in partitioned_thetas
+                        ]
+                    )
+                )
+
+                # estimate expected value of optimal action
+                rho = np.sum([p_optimal[a] * cond_mu[a, a] for a in range(self.K)])
+                delta = rho - mu
+
+                # calculate variance term for each arm as an expectation
+                variance = np.sum(
+                    np.array(
+                        [p_optimal[a] * (cond_mu[a] - mu) ** 2 for a in range(self.K)]
+                    ),
+                    axis=0,
+                )
 
             if self.use_argmin:
-                action = np.argmin(delta**2 / variance)
+                action = np.nan_to_num(np.argmin(delta**2 / variance))
             else:
-                action = self.__ids_action(delta, variance)
+                action = self.__ids_action_scipy(delta, variance)
 
         reward = self.bandit_env.sample(action)
 
         # Update posterior
-        self.update_bayesian_posterior(action, reward)
+        self.bayesian_state.update_posterior(reward, action)
 
         # Resample thetas for updated action only.
-        self.thetas[action] = self.__calculate_theta(action)
+        if self.is_linear:
+            self.thetas = self.bayesian_state.get_theta_samples(self.M).T
+        else:
+            self.thetas[action] = self.__calculate_theta(action)
 
-        if DEBUG:
-            print(f"\n--------round {t}--------")
-            print(f"mu:\t\t\t\t{mu}")
-            print(f"times chosen:\t\t\t{self.betas - 1}")
-            for action in range(self.K):
-                print(f"--Assume action {action} is optimal--")
-                print(f"estimated mean of action {action}:\t{mu[action]}")
-                print(f"p_optimal({action}):\t\t\t{p_optimal[action]}")
-                print(f"mean vector given {action} optimal:\t{cond_mu[action]}")
-            print(f"---more stats---")
-            print(f"rho_star:\t\t\t{rho}")
-            print(f"delta vector:\t\t\t{delta}")
-            print(f"variance:\t\t\t{variance}")
-            print(f"info ratio:\t\t\t{delta**2 / variance}")
-            print(f"action chosen:\t\t\t{action}")
+        return reward, action
 
-        return action, reward
-
-    def __ids_action(self, delta, v):
-        min_ratio = None
-        min_pair = None
-        q_min = None
+    def __ids_action_scipy(self, delta, v) -> int_:
+        min_ratio: float | None = None
+        min_pair: tuple[int, int] = (0, 0)
+        q_min: float = 0.0
         for a1 in range(self.K - 1):
             for a2 in range(a1 + 1, self.K):
                 obj = lambda q: (q * delta[a1] + (1 - q) * delta[a2]) ** 2 / (
@@ -268,11 +317,10 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                     min_ratio = info_ratio
                     q_min = q
                     min_pair = (a1, a2)
-        return min_pair[0] if np.random.random() < q_min else min_pair[1]
+        return np.int_(min_pair[0] if np.random.random() < q_min else min_pair[1])
 
     def __calculate_thetas(self):
         return np.array([self.__calculate_theta(action) for action in range(self.K)])
 
     def __calculate_theta(self, action):
-        return gamma.rvs(self.alphas[action], scale=1 / self.betas[action], size=self.M)
-"""
+        return self.bayesian_state.get_sample_for_action(action, self.M)

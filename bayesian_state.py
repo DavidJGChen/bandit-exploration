@@ -36,6 +36,10 @@ class BaseBayesianState[BanditEnv: BaseBanditEnv](ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
+        raise NotImplementedError
+
+    @abstractmethod
     def reset_state(self) -> None:
         raise NotImplementedError
 
@@ -72,6 +76,9 @@ class BetaBernoulliState(BaseBayesianState[BernoulliBanditEnv]):
     def get_samples(self) -> NDArray[float64]:
         return np.random.beta(self.alphas, self.betas, size=self.bandit_env.K)
 
+    def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
+        return np.random.beta(self.alphas[action], self.betas[action], size=size)
+
 
 # ------------------------------------------------
 
@@ -98,11 +105,21 @@ class GammaPoissonState(BaseBayesianState[PoissonBanditEnv]):
     def get_quantiles(self, quantile: float64) -> NDArray[Reward]:
         return gamma.ppf(quantile, self.alphas, scale=1 / self.betas)
 
-    # def get_samples(self) -> NDArray[float64]:
-    #     inv_betas = 1 / self.betas
-    #     return gamma.rvs(
-    #         self.alphas, scale=inv_betas, size=(self.bandit_env.K,)
-    #     ).astype(float64)
+    def get_samples(self) -> NDArray[float64]:
+        inv_betas = 1 / self.betas
+        return gamma.rvs(
+            self.alphas,
+            scale=inv_betas,
+            size=(self.bandit_env.K,),
+        ).astype(float64)
+
+    def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
+        inv_beta = 1 / self.betas[action]
+        return gamma.rvs(
+            self.alphas[action],
+            scale=inv_beta,
+            size=(size,),
+        ).astype(float64)
 
 
 # ------------------------------------------------
@@ -145,6 +162,9 @@ class GaussianGaussianState(BaseBayesianState[GaussianBanditEnv]):
     def get_samples(self) -> NDArray[float64]:
         return np.random.normal(self.mus, self.sigmas, size=self.bandit_env.K)
 
+    def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
+        return np.random.normal(self.mus[action], self.sigmas[action], size=size)
+
 
 # ------------------------------------------------
 
@@ -183,5 +203,12 @@ class LinearGaussianState(BaseBayesianState[LinearBanditEnv]):
         )
         return norm.ppf(quantile, loc=means, scale=np.sqrt(variances))
 
+    def get_theta_samples(self, size: int | None = None) -> NDArray[float64]:
+        return np.random.multivariate_normal(self.mu_vec, self.Sigma, size=size)
+
     def get_samples(self) -> NDArray[float64]:
-        return np.random.multivariate_normal(self.mu_vec, self.Sigma)
+        return self.bandit_env.phi @ self.get_theta_samples()
+
+    def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
+        # I think this may be wrong
+        return self.get_theta_samples(size=size)[action]
