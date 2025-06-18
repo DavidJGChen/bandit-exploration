@@ -5,59 +5,60 @@ Environments rely on specific implementation of arms. For example, the
 BernoulliBanditEnv instantiates Bernoulli arms.
 """
 
-from typing import Protocol, abstractmethod
-from numpy import float64
+from abc import abstractmethod
+from typing import Protocol
+from numpy import float64, int_
 from numpy.typing import NDArray
 import numpy as np
 
 
 class BaseArm[OutcomeT](Protocol):
-    mean: float
+    mean: float64
 
     @abstractmethod
     def sample(self) -> OutcomeT:
         raise NotImplementedError
 
 
-class BernoulliArm(BaseArm[float]):
-    def __init__(self, theta: float):
+class BernoulliArm(BaseArm[float64]):
+    def __init__(self, theta: float64):
         self.theta = theta
         self.mean = theta
 
-    def sample(self) -> float:
+    def sample(self) -> float64:
         return 1.0 if np.random.rand() < self.theta else 0.0
 
 
-class GaussianArm(BaseArm[float]):
-    def __init__(self, mu: float, eta: float):
+class GaussianArm(BaseArm[float64]):
+    def __init__(self, mu: float64, eta: float64):
         self.mu = mu
         self.eta = eta
         self.mean = mu
 
-    def sample(self) -> float:
+    def sample(self) -> float64:
         return np.random.normal(self.mu, self.eta)
 
 
-class PoissonArm(BaseArm[int]):
-    def __init__(self, rate: float):
+class PoissonArm(BaseArm[int_]):
+    def __init__(self, rate: float64):
         self.rate = rate
         self.mean = rate
 
-    def sample(self) -> int:
+    def sample(self) -> int_:
         return np.random.poisson(self.rate)
 
 
-class LinearArm(BaseArm[float]):
-    def __init__(self, feature, theta):
+class LinearArm(BaseArm[float64]):
+    def __init__(self, feature: NDArray[float64], theta: NDArray[float64]):
         self.feature = feature
-        self.mean = feature @ theta
+        self.mean = np.dot(feature, theta)
 
-    def sample(self) -> float:
+    def sample(self) -> float64:
         return self.mean + np.random.standard_normal()
 
 
 class BaseBanditEnv[A: BaseArm]:
-    def __init__(self, K):
+    def __init__(self, K: int):
         self.K = K
         self.arms: list[A] = self.initialize_arms()
         self.optimal_action = np.argmax([arm.mean for arm in self.arms])
@@ -66,7 +67,7 @@ class BaseBanditEnv[A: BaseArm]:
     def initialize_arms(self) -> list[A]:
         raise NotImplementedError
 
-    def sample(self, action):
+    def sample(self, action) -> float64:
         try:
             return self.arms[action].sample()
         except KeyError as e:
@@ -97,7 +98,11 @@ class PoissonBanditEnv(BaseBanditEnv[PoissonArm]):
 
 
 class LinearBanditEnv(BaseBanditEnv[LinearArm]):
-    def __init__(self, K, d):
+    def __init__(self, K: int, d: int):
+        """
+        K: number of arms
+        d: dimension of feature vector and hidden theta vector.
+        """
         self.d = d
         self.theta: NDArray[float64]
         self.phi: NDArray[float64]

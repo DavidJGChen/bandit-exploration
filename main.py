@@ -4,34 +4,13 @@ import os
 from tqdm import tqdm
 from multiprocessing import Pool
 
-from algorithms import (
+from base_algorithms import (
     RandomAlgorithm,
-    # EpsilonGreedyAlgorithm,
-    # ThompsonSamplingAlgorithm,
-    # BayesUCBAlgorithm,
-    # VarianceIDSAlgorithm,
-)
-
-# from gaussian_algorithms import (
-#     EpsilonGreedyAlgorithm,
-#     ThompsonSamplingAlgorithm,
-#     BayesUCBAlgorithm,
-#     VarianceIDSAlgorithm,
-# )
-
-from poisson_algorithms import (
     EpsilonGreedyAlgorithm,
     ThompsonSamplingAlgorithm,
     BayesUCBAlgorithm,
-    VarianceIDSAlgorithm,
+    # VarianceIDSAlgorithm,
 )
-
-# from linear_algorithms import (
-#     EpsilonGreedyAlgorithm,
-#     ThompsonSamplingAlgorithm,
-#     BayesUCBAlgorithm,
-#     VarianceIDSAlgorithm,
-# )
 
 from bandits import (
     BernoulliBanditEnv,
@@ -39,6 +18,13 @@ from bandits import (
     PoissonBanditEnv,
     LinearBanditEnv,
 )
+
+from bayesian_state import {
+    BetaBernoulliState,
+    GaussianGaussianState,
+    GammaPoissonState,
+    LinearGaussianState,
+}
 
 # TODO: add command line config
 
@@ -75,8 +61,10 @@ def trial(_):
 
     # bandit_env = BernoulliBanditEnv(num_arms)
     # bandit_env = GaussianBanditEnv(num_arms)
-    bandit_env = PoissonBanditEnv(num_arms)
+    # bandit_env = PoissonBanditEnv(num_arms)
     # bandit_env = LinearBanditEnv(num_arms, d=5)
+
+    bayesian_state = 
 
     # print("theta:")
     # print(bandit_env.theta)
@@ -87,10 +75,10 @@ def trial(_):
         # RandomAlgorithm(bandit_env),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.0),
         # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
-        EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
+        # EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
         # EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
-        BayesUCBAlgorithm(bandit_env, 0),
-        ThompsonSamplingAlgorithm(bandit_env),
+        # BayesUCBAlgorithm(bandit_env, 0),
+        # ThompsonSamplingAlgorithm(bandit_env),
         # VarianceIDSAlgorithm(bandit_env, 10000),
         # VarianceIDSAlgorithm(bandit_env, 10000, use_argmin=True),
     ]
