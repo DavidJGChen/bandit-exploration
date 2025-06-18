@@ -1,42 +1,47 @@
-from numpy import float64, dtype
+"""
+This module contains everything needed to create a bandit environment.
+
+Environments rely on specific implementation of arms. For example, the
+BernoulliBanditEnv instantiates Bernoulli arms.
+"""
+
+from typing import Protocol, abstractmethod
+from numpy import float64
 from numpy.typing import NDArray
 import numpy as np
-from abc import ABC, abstractmethod
-from typing import Generic, TypeVar, Any
 
 
-class BaseArm[OutcomeType](ABC):
-    def __init__(self, mean: float) -> None:
-        self.mean = mean
+class BaseArm[OutcomeT](Protocol):
+    mean: float
 
     @abstractmethod
-    def sample(self) -> OutcomeType:
+    def sample(self) -> OutcomeT:
         raise NotImplementedError
 
 
 class BernoulliArm(BaseArm[float]):
-    def __init__(self, theta):
+    def __init__(self, theta: float):
         self.theta = theta
-        super().__init__(theta)
+        self.mean = theta
 
     def sample(self) -> float:
         return 1.0 if np.random.rand() < self.theta else 0.0
 
 
 class GaussianArm(BaseArm[float]):
-    def __init__(self, mu, eta):
+    def __init__(self, mu: float, eta: float):
         self.mu = mu
         self.eta = eta
-        super().__init__(mu)
+        self.mean = mu
 
     def sample(self) -> float:
         return np.random.normal(self.mu, self.eta)
 
 
 class PoissonArm(BaseArm[int]):
-    def __init__(self, rate):
+    def __init__(self, rate: float):
         self.rate = rate
-        super().__init__(rate)
+        self.mean = rate
 
     def sample(self) -> int:
         return np.random.poisson(self.rate)
@@ -45,7 +50,7 @@ class PoissonArm(BaseArm[int]):
 class LinearArm(BaseArm[float]):
     def __init__(self, feature, theta):
         self.feature = feature
-        super().__init__(feature @ theta)
+        self.mean = feature @ theta
 
     def sample(self) -> float:
         return self.mean + np.random.standard_normal()
