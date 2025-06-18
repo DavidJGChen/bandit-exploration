@@ -20,6 +20,10 @@ class BaseBayesianState[BanditEnv: BaseBanditEnv](ABC):
     bandit_env: BanditEnv
 
     @abstractmethod
+    def __init__(self, bandit_env: BanditEnv) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
     def get_means(self) -> NDArray[Reward]:
         raise NotImplementedError
 
@@ -94,9 +98,11 @@ class GammaPoissonState(BaseBayesianState[PoissonBanditEnv]):
     def get_quantiles(self, quantile: float64) -> NDArray[Reward]:
         return gamma.ppf(quantile, self.alphas, scale=1 / self.betas)
 
-    def get_samples(self) -> NDArray[float64]:
-        inv_betas = 1 / self.betas
-        return gamma.rvs(self.alphas, scale=inv_betas, size=self.bandit_env.K)
+    # def get_samples(self) -> NDArray[float64]:
+    #     inv_betas = 1 / self.betas
+    #     return gamma.rvs(
+    #         self.alphas, scale=inv_betas, size=(self.bandit_env.K,)
+    #     ).astype(float64)
 
 
 # ------------------------------------------------

@@ -66,6 +66,9 @@ class RandomAlgorithm(BaseAlgorithm):
     def __init__(self, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState):
         super().__init__(bandit_env, bayesian_state)
 
+    def reset_algorithm_state(self) -> None:
+        pass
+
     def single_step(self, t: int):
         action = np.int_(np.random.choice(self.K))
         return self.bandit_env.sample(action), action
@@ -79,12 +82,12 @@ class EpsilonGreedyAlgorithm(BaseAlgorithm):
         self,
         bandit_env: BaseBanditEnv,
         bayesian_state: BaseBayesianState,
-        epsilon_func: Callable[[int], float64],
+        epsilon_func: Callable[[int], float],
     ) -> None:
         super().__init__(bandit_env, bayesian_state)
         self.epsilon_func = epsilon_func
 
-    def reset_state(self) -> None:
+    def reset_algorithm_state(self) -> None:
         pass
 
     def single_step(self, t: int):
@@ -107,12 +110,12 @@ class BayesUCBAlgorithm(BaseAlgorithm):
     inv_log_factor: float64
 
     def __init__(
-        self, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState, c: int_
+        self, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState, c: int
     ):
         self.c = c
         super().__init__(bandit_env, bayesian_state)
 
-    def reset_state(self):
+    def reset_algorithm_state(self):
         self.inv_log_factor = 1 / np.power(np.log(self.T), self.c)
 
     def single_step(self, t: int):
@@ -137,7 +140,7 @@ class ThompsonSamplingAlgorithm(BaseAlgorithm):
     def __init__(self, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState):
         super().__init__(bandit_env, bayesian_state)
 
-    def reset_state(self):
+    def reset_algorithm_state(self):
         pass
 
     def single_step(self, t: int):
@@ -164,7 +167,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         self.use_argmin = use_argmin
         self.rates = None
 
-    def reset_state(self):
+    def reset_algorithm_state(self):
         self.reset_bayesian_state()
         self.thetas = self.__calculate_thetas()
 

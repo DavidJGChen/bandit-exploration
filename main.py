@@ -4,7 +4,16 @@ import os
 from tqdm import tqdm
 from multiprocessing import Pool
 
+from bayesian_state import (
+    BaseBayesianState,
+    BetaBernoulliState,
+    GaussianGaussianState,
+    GammaPoissonState,
+    LinearGaussianState,
+)
+
 from base_algorithms import (
+    BaseAlgorithm,
     RandomAlgorithm,
     EpsilonGreedyAlgorithm,
     ThompsonSamplingAlgorithm,
@@ -13,24 +22,66 @@ from base_algorithms import (
 )
 
 from bandits import (
+    BaseBanditEnv,
     BernoulliBanditEnv,
     GaussianBanditEnv,
     PoissonBanditEnv,
     LinearBanditEnv,
 )
 
-from bayesian_state import {
-    BetaBernoulliState,
-    GaussianGaussianState,
-    GammaPoissonState,
-    LinearGaussianState,
-}
-
 # TODO: add command line config
 
 num_trials = 100
-num_arms = 10
 T = 1000
+V_IDS_samples = 10000
+
+num_arms = 10
+bandit_env_configs: dict[
+    str, tuple[type[BaseBanditEnv], type[BaseBayesianState], dict, str]
+] = {
+    "Beta-Bernoulli Bandit": (BernoulliBanditEnv, BetaBernoulliState, {}, "bernoulli"),
+    "Gaussian-Gaussian Bandit": (
+        GaussianBanditEnv,
+        GaussianGaussianState,
+        {},
+        "gaussian",
+    ),
+    "Gamma-Poisson Bandit": (PoissonBanditEnv, GammaPoissonState, {}, "poisson"),
+    "Linear-Gaussian Bandit": (
+        LinearBanditEnv,
+        LinearGaussianState,
+        {"d": 5},
+        "linear",
+    ),
+}
+bandit_env_name = "Beta-Bernoulli Bandit"
+bandit_env_config = bandit_env_configs[bandit_env_name]
+
+algorithms: list[tuple[str, type[BaseAlgorithm], dict]] = [
+    ("random", RandomAlgorithm, {}),
+    ("greedy", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.0}),
+    ("e-greedy 0.2", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.2}),
+    (
+        "e-greedy decay",
+        EpsilonGreedyAlgorithm,
+        {"epsilon_func": lambda t: np.power(t + 1, -1 / 3)},
+    ),
+    (
+        "explore-commit 200",
+        EpsilonGreedyAlgorithm,
+        {"epsilon_func": lambda t: 1.0 if t < 200 else 0.0},
+    ),
+    ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
+    ("TS", ThompsonSamplingAlgorithm, {}),
+    # ("V-IDS", VarianceIDSAlgorithm, V_IDS_samples)),
+    # (
+    #     "V-IDS argmin",
+    #     VarianceIDSAlgorithm(
+    #         bandit_env, bayesian_state, V_IDS_samples, use_argmin=True
+    #     ),
+    # ),
+]
+num_algs = len(algorithms)
 
 
 # TODO: move this function somewhere else
@@ -41,52 +92,25 @@ def cumulative_regret(bandit_env, rewards):
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
 
-# TODO: refactor this
-methods = [
-    # "random",
-    # "greedy",
-    # "e-greedy 0.2",
-    "e-greedy decay",
-    # "explore-commit 200",
-    "Bayes UCB",
-    "TS",
-    # "V-IDS",
-    # "V-IDS argmin",
-]
-
-
 def trial(_):
-    regret_sums = np.zeros((len(methods), T))
-    regret_sq_sums = np.zeros((len(methods), T))
+    regret_sums = np.zeros((num_algs, T))
+    regret_sq_sums = np.zeros((num_algs, T))
 
-    # bandit_env = BernoulliBanditEnv(num_arms)
-    # bandit_env = GaussianBanditEnv(num_arms)
-    # bandit_env = PoissonBanditEnv(num_arms)
-    # bandit_env = LinearBanditEnv(num_arms, d=5)
-
-    bayesian_state = 
+    kwargs = bandit_env_config[2]
+    bandit_env = bandit_env_config[0](
+        num_arms,
+        **kwargs,
+    )
+    bayesian_state = bandit_env_config[1](bandit_env)
 
     # print("theta:")
     # print(bandit_env.theta)
     # print("means:")
     # print(np.array([arm.mean for arm in bandit_env.arms]))
 
-    algorithms = [
-        # RandomAlgorithm(bandit_env),
-        # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.0),
-        # EpsilonGreedyAlgorithm(bandit_env, lambda _: 0.2),
-        # EpsilonGreedyAlgorithm(bandit_env, lambda t: np.power(t + 1, -1 / 3)),
-        # EpsilonGreedyAlgorithm(bandit_env, lambda t: 1.0 if t < 200 else 0.0),
-        # BayesUCBAlgorithm(bandit_env, 0),
-        # ThompsonSamplingAlgorithm(bandit_env),
-        # VarianceIDSAlgorithm(bandit_env, 10000),
-        # VarianceIDSAlgorithm(bandit_env, 10000, use_argmin=True),
-    ]
-    # TODO: refactor this
-    assert len(algorithms) == len(methods)
-
-    for i, alg in enumerate(algorithms):
-        _, rewards = alg.run(T)
+    for i, (_, alg, kwargs) in enumerate(algorithms):
+        alg_instance = alg(bandit_env, bayesian_state, **kwargs)
+        rewards, _ = alg_instance.run(T)
         regrets = cumulative_regret(bandit_env, rewards)
         regret_sums[i] += regrets
         regret_sq_sums[i] += np.square(regrets)
@@ -97,8 +121,8 @@ def trial(_):
 if __name__ == "__main__":
     np.set_printoptions(precision=3)
 
-    regret_sums = np.zeros((len(methods), T))
-    regret_sq_sums = np.zeros((len(methods), T))
+    regret_sums = np.zeros((num_algs, T))
+    regret_sq_sums = np.zeros((num_algs, T))
 
     with Pool(processes=None) as pool:
         it = pool.imap(trial, range(num_trials))
@@ -109,11 +133,11 @@ if __name__ == "__main__":
     """
     Section below is for plotting
     """
-    title = "Gamma-Poisson Bandit"
-    output = "poisson"
+    title = bandit_env_name
+    output = bandit_env_config[3]
 
-    for i in range(len(methods)):
-        plt.plot(regret_sums[i] / num_trials, label=methods[i])
+    for i in range(num_algs):
+        plt.plot(regret_sums[i] / num_trials, label=algorithms[i][0])
     # plt.xlim(left=0, right=T)
     plt.title(title)
     plt.xlabel("timestep t")
@@ -122,8 +146,8 @@ if __name__ == "__main__":
     plt.savefig(f"{output}.png")
     plt.show()
 
-    for i in range(len(methods)):
-        plt.plot(regret_sums[i] / num_trials, label=methods[i])
+    for i in range(num_algs):
+        plt.plot(regret_sums[i] / num_trials, label=algorithms[i][0])
     # lines for comparison
     x = np.arange(1, T)
     y = 8 * np.sqrt(x)
