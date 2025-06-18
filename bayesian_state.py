@@ -182,7 +182,7 @@ class LinearGaussianState(BaseBayesianState[LinearBanditEnv]):
         self.Sigma = 10 * np.eye(self.bandit_env.d)
 
     def update_posterior(self, reward: Reward, action: Action) -> None:
-        # Assume eta is 1 (standard gaussian noise
+        # Assume eta is 1 (standard gaussian noise)
         phi_a = self.bandit_env.arms[action].feature
 
         # For some ungodly reason np.linalg.inv does not work with with multiprocessing
@@ -210,5 +210,5 @@ class LinearGaussianState(BaseBayesianState[LinearBanditEnv]):
         return self.bandit_env.phi @ self.get_theta_samples()
 
     def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
-        # I think this may be wrong
+        # I think this may be wrong?, but it's ok I don't use this
         return self.get_theta_samples(size=size)[action]
