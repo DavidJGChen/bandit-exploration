@@ -31,9 +31,9 @@ from bandits import (
 
 # TODO: add command line config
 
-num_trials = 100
+num_trials = 20
 num_processes = 1
-T = 500
+T = 250
 V_IDS_samples = 10000
 
 num_arms = 10

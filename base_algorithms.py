@@ -5,9 +5,8 @@ from bayesian_state import BaseBayesianState
 from numpy.typing import NDArray
 from numpy import float64, int_
 import numpy as np
-import scipy
-from scipy.stats import gamma
 from scipy.optimize import minimize_scalar
+import cvxpy as cp
 
 DEBUG = False
 
@@ -286,7 +285,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
             if self.use_argmin:
                 action = np.nan_to_num(np.argmin(delta**2 / variance))
             else:
-                action = self.__ids_action_scipy(delta, variance)
+                action = self.__ids_action_cvxpy(delta, variance)
 
         reward = self.bandit_env.sample(action)
 
@@ -316,6 +315,40 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                 if min_ratio == None or info_ratio < min_ratio:
                     min_ratio = info_ratio
                     q_min = q
+                    min_pair = (a1, a2)
+        return np.int_(min_pair[0] if np.random.random() < q_min else min_pair[1])
+
+    def __ids_action_cvxpy(self, delta, v) -> int_:
+        min_ratio: float | None = None
+        min_pair: tuple[int, int] = (0, 0)
+        q_min: float = 0.0
+
+        q = cp.Variable(nonneg=True)
+        delta_a1 = cp.Parameter()
+        delta_a2 = cp.Parameter()
+        v_a1 = cp.Parameter()
+        v_a2 = cp.Parameter()
+
+        objective = cp.Minimize(
+            cp.square(q * delta_a1 + (1 - q) * delta_a2)
+            * cp.inv_pos(q * v_a1 + (1 - q) * v_a2)
+        )
+        problem = cp.Problem(objective, [q <= 1])
+
+        for a1 in range(self.K - 1):
+            for a2 in range(a1 + 1, self.K):
+                delta_a1.value = delta[a1]
+                delta_a2.value = delta[a2]
+                v_a1.value = v[a1]
+                v_a2.value = v[a2]
+
+                problem.solve()
+
+                info_ratio = problem.value
+                opt_q = q.value
+                if min_ratio == None or info_ratio < min_ratio:
+                    min_ratio = info_ratio
+                    q_min = opt_q
                     min_pair = (a1, a2)
         return np.int_(min_pair[0] if np.random.random() < q_min else min_pair[1])
 

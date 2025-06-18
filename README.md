@@ -7,4 +7,5 @@
 - Add result saving
 - Add command line args
 - Improve IDS action selection
+- Get CVXPY to work??
 - General cleanup 
