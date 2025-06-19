@@ -330,8 +330,9 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         v_a2 = cp.Parameter()
 
         objective = cp.Minimize(
-            cp.square(q * delta_a1 + (1 - q) * delta_a2)
-            * cp.inv_pos(q * v_a1 + (1 - q) * v_a2)
+            cp.quad_over_lin(
+                q * delta_a1 + (1 - q) * delta_a2, q * v_a1 + (1 - q) * v_a2
+            )
         )
         problem = cp.Problem(objective, [q <= 1])
 
