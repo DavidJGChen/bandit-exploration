@@ -76,14 +76,12 @@ class BaseBanditEnv[A: BaseArm]:
 
 
 class BernoulliBanditEnv(BaseBanditEnv[BernoulliArm]):
-
     def initialize_arms(self):
         thetas: NDArray[float64] = np.random.uniform(0, 1, size=(self.K,))
         return [BernoulliArm(theta) for theta in thetas]
 
 
 class GaussianBanditEnv(BaseBanditEnv[GaussianArm]):
-
     def initialize_arms(self):
         mus: NDArray[float64] = np.random.normal(0, 1, size=(self.K,))
         etas: NDArray[float64] = np.ones(self.K)
@@ -91,7 +89,6 @@ class GaussianBanditEnv(BaseBanditEnv[GaussianArm]):
 
 
 class PoissonBanditEnv(BaseBanditEnv[PoissonArm]):
-
     def initialize_arms(self):
         rates: NDArray[float64] = np.random.exponential(1.0, size=(self.K,))
         return [PoissonArm(rate) for rate in rates]

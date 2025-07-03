@@ -306,13 +306,16 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         q_min: float = 0.0
         for a1 in range(self.K - 1):
             for a2 in range(a1 + 1, self.K):
-                obj = lambda q: (q * delta[a1] + (1 - q) * delta[a2]) ** 2 / (
-                    q * v[a1] + (1 - q) * v[a2]
-                )
+
+                def obj(q):
+                    return (q * delta[a1] + (1 - q) * delta[a2]) ** 2 / (
+                        q * v[a1] + (1 - q) * v[a2]
+                    )
+
                 result = minimize_scalar(obj, bounds=(0, 1), method="bounded")
                 info_ratio = result.fun
                 q = result.x
-                if min_ratio == None or info_ratio < min_ratio:
+                if min_ratio is None or info_ratio < min_ratio:
                     min_ratio = info_ratio
                     q_min = q
                     min_pair = (a1, a2)
@@ -347,7 +350,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
 
                 info_ratio = problem.value
                 opt_q = q.value
-                if min_ratio == None or info_ratio < min_ratio:
+                if min_ratio is None or info_ratio < min_ratio:
                     min_ratio = info_ratio
                     q_min = opt_q
                     min_pair = (a1, a2)
