@@ -26,7 +26,7 @@ class BernoulliArm(BaseArm[float64]):
         self.mean = theta
 
     def sample(self) -> float64:
-        return 1.0 if np.random.rand() < self.theta else 0.0
+        return np.float64(1.0 if np.random.rand() < self.theta else 0.0)
 
 
 class GaussianArm(BaseArm[float64]):

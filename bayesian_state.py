@@ -9,7 +9,7 @@ from bandits import (
 from numpy.typing import NDArray
 from numpy import float64, int_
 import numpy as np
-import scipy
+import scipy.linalg
 from scipy.stats import beta, gamma, norm
 
 Reward = float64
