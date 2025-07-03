@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 from tqdm import tqdm
 from multiprocessing import Pool
 
@@ -14,8 +13,6 @@ from bayesian_state import (
 
 from base_algorithms import (
     BaseAlgorithm,
-    RandomAlgorithm,
-    EpsilonGreedyAlgorithm,
     ThompsonSamplingAlgorithm,
     BayesUCBAlgorithm,
     VarianceIDSAlgorithm,
