@@ -1,12 +1,14 @@
-from collections.abc import Callable
 from abc import ABC, abstractmethod
+from collections.abc import Callable
+
+import cvxpy as cp
+import numpy as np
+from numpy import float64, int_
+from numpy.typing import NDArray
+from scipy.optimize import minimize_scalar
+
 from bandits import BaseBanditEnv, LinearBanditEnv
 from bayesian_state import BaseBayesianState
-from numpy.typing import NDArray
-from numpy import float64, int_
-import numpy as np
-from scipy.optimize import minimize_scalar
-import cvxpy as cp
 
 DEBUG = False
 

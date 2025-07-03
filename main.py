@@ -1,29 +1,28 @@
+from multiprocessing import Pool
+
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
-from multiprocessing import Pool
-
-from bayesian_state import (
-    BaseBayesianState,
-    BetaBernoulliState,
-    GaussianGaussianState,
-    GammaPoissonState,
-    LinearGaussianState,
-)
-
-from base_algorithms import (
-    BaseAlgorithm,
-    ThompsonSamplingAlgorithm,
-    BayesUCBAlgorithm,
-    VarianceIDSAlgorithm,
-)
 
 from bandits import (
     BaseBanditEnv,
     BernoulliBanditEnv,
     GaussianBanditEnv,
-    PoissonBanditEnv,
     LinearBanditEnv,
+    PoissonBanditEnv,
+)
+from base_algorithms import (
+    BaseAlgorithm,
+    BayesUCBAlgorithm,
+    ThompsonSamplingAlgorithm,
+    VarianceIDSAlgorithm,
+)
+from bayesian_state import (
+    BaseBayesianState,
+    BetaBernoulliState,
+    GammaPoissonState,
+    GaussianGaussianState,
+    LinearGaussianState,
 )
 
 # TODO: add command line config

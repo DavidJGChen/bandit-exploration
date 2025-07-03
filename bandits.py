@@ -7,9 +7,10 @@ BernoulliBanditEnv instantiates Bernoulli arms.
 
 from abc import abstractmethod
 from typing import Protocol
+
+import numpy as np
 from numpy import float64, int_
 from numpy.typing import NDArray
-import numpy as np
 
 
 class BaseArm[OutcomeT](Protocol):

@@ -1,16 +1,18 @@
 from abc import ABC, abstractmethod
+
+import numpy as np
+import scipy.linalg
+from numpy import float64, int_
+from numpy.typing import NDArray
+from scipy.stats import beta, gamma, norm
+
 from bandits import (
     BaseBanditEnv,
     BernoulliBanditEnv,
-    PoissonBanditEnv,
     GaussianBanditEnv,
     LinearBanditEnv,
+    PoissonBanditEnv,
 )
-from numpy.typing import NDArray
-from numpy import float64, int_
-import numpy as np
-import scipy.linalg
-from scipy.stats import beta, gamma, norm
 
 Reward = float64
 Action = int_
