@@ -2,10 +2,11 @@
 
 # TODO:
 - ~~Add types~~
-- Finish adding types (pyrefly seems to suck, pyright is better but also sucks)
+- Finish adding types (Let's try using ty for now)
 - ~~Remove silly copy-paste files~~
 - Add result saving
 - Add command line args
 - Improve IDS action selection
-- Get CVXPY to work??
-- General cleanup 
+- Get CVXPY to work?? -- (I'll need to reformulate in terms of quad_over_lin)
+- General cleanup
+- Replace multiprocessing with Ray
