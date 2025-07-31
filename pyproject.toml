@@ -1,7 +1,7 @@
 [project]
 name = "bandit-exploration"
 version = "0.1.0"
-description = "Add your description here"
+description = "My personal reimplementation of various bandit algorithms."
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = []
