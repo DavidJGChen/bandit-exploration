@@ -9,4 +9,5 @@
 - Improve IDS action selection
 - Get CVXPY to work?? -- (I'll need to reformulate in terms of quad_over_lin)
 - General cleanup
-- Replace multiprocessing with Ray
+- ~~Replace multiprocessing with Ray~~
+- Integrate better with Ray

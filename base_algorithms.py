@@ -287,7 +287,8 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
             if self.use_argmin:
                 action = np.nan_to_num(np.argmin(delta**2 / variance))
             else:
-                action = self.__ids_action_cvxpy(delta, variance)
+                action = self.__ids_action_scipy(delta, variance)
+                # action = self.__ids_action_cvxpy(delta, variance)
 
         reward = self.bandit_env.sample(action)
 

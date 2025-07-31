@@ -1,4 +1,4 @@
-from multiprocessing import Pool # replace with Ray
+from ray.util.multiprocessing import Pool
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -27,9 +27,9 @@ from bayesian_state import (
 
 # TODO: add command line config
 
-num_trials = 20
-num_processes = 1
-T = 250
+num_trials = 100
+num_processes = None
+T = 500
 V_IDS_samples = 10000
 
 num_arms = 10
@@ -70,7 +70,7 @@ algorithms: list[tuple[str, type[BaseAlgorithm], dict]] = [
     # ),
     ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
     ("TS", ThompsonSamplingAlgorithm, {}),
-    # ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
+    ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
     ("V-IDS argmin", VarianceIDSAlgorithm, {"M": V_IDS_samples, "use_argmin": True}),
 ]
 num_algs = len(algorithms)

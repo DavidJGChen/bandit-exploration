@@ -8,5 +8,6 @@ dependencies = [
     "cvxpy>=1.7.1",
     "matplotlib>=3.10.3",
     "numpy>=2.3.2",
+    "ray>=2.48.0",
     "tqdm>=4.67.1",
 ]
