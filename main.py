@@ -70,7 +70,7 @@ algorithms: list[tuple[str, type[BaseAlgorithm], dict]] = [
     # ),
     ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
     ("TS", ThompsonSamplingAlgorithm, {}),
-    ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
+    # ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
     ("V-IDS argmin", VarianceIDSAlgorithm, {"M": V_IDS_samples, "use_argmin": True}),
 ]
 num_algs = len(algorithms)
