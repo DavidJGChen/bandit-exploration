@@ -11,3 +11,4 @@
 - General cleanup
 - ~~Replace multiprocessing with Ray~~
 - Integrate better with Ray
+- Add doc-strings
