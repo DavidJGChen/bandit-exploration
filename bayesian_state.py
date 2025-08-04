@@ -14,8 +14,7 @@ from bandits import (
     PoissonBanditEnv,
 )
 
-Reward = float64
-Action = int_
+from common import Reward, Action
 
 
 class BaseBayesianState[BanditEnv: BaseBanditEnv](ABC):
@@ -62,8 +61,8 @@ class BetaBernoulliState(BaseBayesianState[BernoulliBanditEnv]):
         self.bandit_env = bandit_env
 
     def reset_state(self) -> None:
-        self.alphas = np.ones(self.bandit_env.K, dtype=int_)
-        self.betas = np.ones(self.bandit_env.K, dtype=int_)
+        self.alphas = np.ones(self.bandit_env.k, dtype=int_)
+        self.betas = np.ones(self.bandit_env.k, dtype=int_)
 
     def update_posterior(self, reward: Reward, action: Action) -> None:
         self.alphas[action] += reward
@@ -73,10 +72,10 @@ class BetaBernoulliState(BaseBayesianState[BernoulliBanditEnv]):
         return self.alphas / (self.alphas + self.betas)
 
     def get_quantiles(self, quantile: float64) -> NDArray[float64]:
-        return beta.ppf(quantile, self.alphas, self.betas)
+        return np.asarray(beta.ppf(quantile, self.alphas, self.betas))
 
     def get_samples(self) -> NDArray[float64]:
-        return np.random.beta(self.alphas, self.betas, size=self.bandit_env.K)
+        return np.random.beta(self.alphas, self.betas, size=self.bandit_env.k)
 
     def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
         return np.random.beta(self.alphas[action], self.betas[action], size=size)
@@ -94,8 +93,8 @@ class GammaPoissonState(BaseBayesianState[PoissonBanditEnv]):
         self.bandit_env = bandit_env
 
     def reset_state(self) -> None:
-        self.alphas = np.ones(self.bandit_env.K, dtype=int_)
-        self.betas = np.ones(self.bandit_env.K, dtype=int_)
+        self.alphas = np.ones(self.bandit_env.k, dtype=int_)
+        self.betas = np.ones(self.bandit_env.k, dtype=int_)
 
     def update_posterior(self, reward: Reward, action: Action) -> None:
         self.alphas[action] += reward
@@ -105,23 +104,27 @@ class GammaPoissonState(BaseBayesianState[PoissonBanditEnv]):
         return self.alphas / self.betas
 
     def get_quantiles(self, quantile: float64) -> NDArray[Reward]:
-        return gamma.ppf(quantile, self.alphas, scale=1 / self.betas)
+        return np.asarray(gamma.ppf(quantile, self.alphas, scale=1 / self.betas))
 
     def get_samples(self) -> NDArray[float64]:
         inv_betas = 1 / self.betas
-        return gamma.rvs(
-            self.alphas,
-            scale=inv_betas,
-            size=(self.bandit_env.K,),
-        ).astype(float64)
+        return np.asarray(
+            gamma.rvs(
+                self.alphas,  # type: ignore
+                scale=inv_betas,  # type: ignore
+                size=(self.bandit_env.k,),
+            )
+        )
 
     def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
         inv_beta = 1 / self.betas[action]
-        return gamma.rvs(
-            self.alphas[action],
-            scale=inv_beta,
-            size=(size,),
-        ).astype(float64)
+        return np.asarray(
+            gamma.rvs(
+                self.alphas[action],
+                scale=inv_beta,
+                size=(size,),
+            )
+        )
 
 
 # ------------------------------------------------
@@ -140,8 +143,8 @@ class GaussianGaussianState(BaseBayesianState[GaussianBanditEnv]):
         mu = 0.0
         sigma = 1.0
 
-        self.mus = np.full(self.bandit_env.K, mu)
-        self.sigmas = np.full(self.bandit_env.K, sigma)
+        self.mus = np.full(self.bandit_env.k, mu)
+        self.sigmas = np.full(self.bandit_env.k, sigma)
 
     def update_posterior(self, reward: Reward, action: Action) -> None:
         eta = self.bandit_env.arms[action].eta
@@ -159,13 +162,17 @@ class GaussianGaussianState(BaseBayesianState[GaussianBanditEnv]):
         return self.mus
 
     def get_quantiles(self, quantile: float64) -> NDArray[Reward]:
-        return norm.ppf(quantile, loc=self.mus, scale=self.sigmas)
+        return np.asarray(norm.ppf(quantile, loc=self.mus, scale=self.sigmas))
 
     def get_samples(self) -> NDArray[float64]:
-        return np.random.normal(self.mus, self.sigmas, size=self.bandit_env.K)
+        return np.asarray(
+            np.random.normal(self.mus, self.sigmas, size=self.bandit_env.k)
+        )
 
     def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
-        return np.random.normal(self.mus[action], self.sigmas[action], size=size)
+        return np.asarray(
+            np.random.normal(self.mus[action], self.sigmas[action], size=size)
+        )
 
 
 # ------------------------------------------------
@@ -192,7 +199,7 @@ class LinearGaussianState(BaseBayesianState[LinearBanditEnv]):
         new_Sigma = scipy.linalg.inv(Sigma_inv + np.outer(phi_a, phi_a))
 
         self.mu_vec = new_Sigma @ (Sigma_inv @ self.mu_vec + reward * phi_a)
-        self.Sigma = new_Sigma
+        self.Sigma = new_Sigma.astype(float64)
 
     def get_means(self) -> NDArray[Reward]:
         return self.bandit_env.phi @ self.mu_vec
@@ -203,7 +210,7 @@ class LinearGaussianState(BaseBayesianState[LinearBanditEnv]):
             np.multiply(self.bandit_env.phi @ self.Sigma, self.bandit_env.phi),
             axis=1,
         )
-        return norm.ppf(quantile, loc=means, scale=np.sqrt(variances))
+        return np.asarray(norm.ppf(quantile, loc=means, scale=np.sqrt(variances)))
 
     def get_theta_samples(self, size: int | None = None) -> NDArray[float64]:
         return np.random.multivariate_normal(self.mu_vec, self.Sigma, size=size)
