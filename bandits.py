@@ -62,7 +62,7 @@ class LinearArm:
         return self.mean + np.random.standard_normal()
 
 
-class BaseBanditEnv(Generic[P[T]]):
+class BaseBanditEnv(Generic[P]):
     def __init__(self, k: int):
         self.k = k
         self.arms: list[P] = self.initialize_arms()
