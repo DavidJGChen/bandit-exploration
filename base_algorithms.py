@@ -30,7 +30,7 @@ class BaseAlgorithm(ABC):
     ) -> None:
         self.bandit_env = bandit_env
         self.bayesian_state = bayesian_state
-        self.K = self.bandit_env.K
+        self.K = self.bandit_env.k
 
     def run(self, T) -> tuple[NDArray[Reward], NDArray[Action]]:
         self.__reset_state(T)
@@ -315,7 +315,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                         q * v[a1] + (1 - q) * v[a2]
                     )
 
-                result = minimize_scalar(obj, bounds=(0, 1), method="bounded")
+                result = minimize_scalar(obj, bounds=(0, 1), method="bounded")  # type: ignore
                 info_ratio = result.fun
                 q = result.x
                 if min_ratio is None or info_ratio < min_ratio:
@@ -352,7 +352,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                 problem.solve()
 
                 info_ratio = problem.value
-                opt_q = q.value
+                opt_q = float(q.value) if q.value is not None else 0.0
                 if min_ratio is None or info_ratio < min_ratio:
                     min_ratio = info_ratio
                     q_min = opt_q

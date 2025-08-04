@@ -1,0 +1,6 @@
+types-tqdm
+scipy-stubs
+pre-commit
+mypy
+ruff
+pytest
