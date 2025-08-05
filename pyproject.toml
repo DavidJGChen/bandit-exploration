@@ -10,4 +10,10 @@ dependencies = [
     "numpy>=2.3.2",
     "ray>=2.48.0",
     "tqdm>=4.67.1",
+    "cyclopts>=3.0.0,<4.0.0",
+    "loguru>=0.7.0,<0.8.0",
+    "pyqt5<5.16",
+    "pyqtwebengine<5.16",
+    "loguru<1.0",
+    "icecream>=2.0.0,<3.0.0"
 ]
