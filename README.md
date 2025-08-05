@@ -1,14 +1,21 @@
 # bandit-exploration
 
-# TODO:
-- ~~Add types~~
-- Finish adding types (Let's try using ty for now)
-- ~~Remove silly copy-paste files~~
+## General todo:
+- Finish adding typing (mypy or ty)
+- Move requirements-dev.txt to pyproject.toml
+- Add random seed to make results deterministic
+- Clean up images into a proper output file
 - Add result saving
+- Add basic testing
+- Add pre-commit
 - Add command line args
+- Add doc-strings
+
+## Performance todo:
+- Integrate better with Ray
+- Figure out multiprocessing issue with IDS.
+
+## Algorithm todo:
 - Improve IDS action selection
 - Get CVXPY to work?? -- (I'll need to reformulate in terms of quad_over_lin)
-- General cleanup
-- ~~Replace multiprocessing with Ray~~
-- Integrate better with Ray
-- Add doc-strings
+- Implement base IDS (non variance version)
