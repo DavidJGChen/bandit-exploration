@@ -5,7 +5,6 @@ Environments rely on specific implementation of arms. For example, the
 BernoulliBanditEnv instantiates Bernoulli arms.
 """
 
-from abc import abstractmethod
 from typing import Protocol, TypeVar, Generic
 
 import numpy as np
