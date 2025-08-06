@@ -9,11 +9,9 @@ from scipy.optimize import minimize_scalar
 
 from bandits import BaseBanditEnv, LinearBanditEnv
 from bayesian_state import BaseBayesianState
+from common import Action, Reward
 
 DEBUG = False
-
-Reward = float64
-Action = int_
 
 
 class BaseAlgorithm(ABC):
@@ -30,9 +28,9 @@ class BaseAlgorithm(ABC):
     ) -> None:
         self.bandit_env = bandit_env
         self.bayesian_state = bayesian_state
-        self.K = self.bandit_env.k
+        self.K = self.bandit_env.K
 
-    def run(self, T) -> tuple[NDArray[Reward], NDArray[Action]]:
+    def run(self, T: int) -> tuple[NDArray[Reward], NDArray[Action]]:
         self.__reset_state(T)
         for t in range(T):
             reward, action = self.__single_step(t)
@@ -70,7 +68,7 @@ class RandomAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         pass
 
-    def single_step(self, t: int):
+    def single_step(self, t: int) -> tuple[Reward, Action]:
         action = np.int_(np.random.choice(self.K))
         return self.bandit_env.sample(action), action
 
@@ -91,7 +89,7 @@ class EpsilonGreedyAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         pass
 
-    def single_step(self, t: int):
+    def single_step(self, t: int) -> tuple[Reward, Action]:
         if np.random.rand() < self.epsilon_func(t):
             action = np.int_(np.random.choice(self.K))
         else:
@@ -116,10 +114,10 @@ class BayesUCBAlgorithm(BaseAlgorithm):
         self.c = c
         super().__init__(bandit_env, bayesian_state)
 
-    def reset_algorithm_state(self):
+    def reset_algorithm_state(self) -> None:
         self.inv_log_factor = 1 / np.power(np.log(self.T), self.c)
 
-    def single_step(self, t: int):
+    def single_step(self, t: int) -> tuple[Reward, Action]:
         if t < self.K:
             action = np.int_(t)
         else:
@@ -141,10 +139,9 @@ class ThompsonSamplingAlgorithm(BaseAlgorithm):
     def __init__(self, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState):
         super().__init__(bandit_env, bayesian_state)
 
-    def reset_algorithm_state(self):
-        pass
+    def reset_algorithm_state(self) -> None: ...
 
-    def single_step(self, t: int):
+    def single_step(self, t: int) -> tuple[Reward, Action]:
         if t < self.K:
             action = np.int_(t)
         else:
@@ -168,8 +165,8 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         self,
         bandit_env: BaseBanditEnv,
         bayesian_state: BaseBayesianState,
-        M,
-        use_argmin=False,
+        M: int,
+        use_argmin: bool = False,
     ):
         super().__init__(bandit_env, bayesian_state)
         self.M = M  # number of samples for MCMC
@@ -177,10 +174,10 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         # Not the best way to do this, but need this hack for now.
         self.is_linear = type(bandit_env) is LinearBanditEnv
 
-    def reset_algorithm_state(self):
+    def reset_algorithm_state(self) -> None:
         self.thetas = self.__calculate_thetas()
 
-    def single_step(self, t):
+    def single_step(self, t: int) -> tuple[Reward, Action]:
         if t < self.K:
             action = np.int_(t)
         else:
@@ -303,7 +300,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
 
         return reward, action
 
-    def __ids_action_scipy(self, delta, v) -> int_:
+    def __ids_action_scipy(self, delta: float64, v) -> int_:
         min_ratio: float | None = None
         min_pair: tuple[int, int] = (0, 0)
         q_min: float = 0.0
@@ -324,7 +321,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                     min_pair = (a1, a2)
         return np.int_(min_pair[0] if np.random.random() < q_min else min_pair[1])
 
-    def __ids_action_cvxpy(self, delta, v) -> int_:
+    def __ids_action_cvxpy(self, delta: float64, v) -> int_:
         min_ratio: float | None = None
         min_pair: tuple[int, int] = (0, 0)
         q_min: float = 0.0
@@ -359,8 +356,8 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                     min_pair = (a1, a2)
         return np.int_(min_pair[0] if np.random.random() < q_min else min_pair[1])
 
-    def __calculate_thetas(self):
+    def __calculate_thetas(self) -> NDArray[float64]:
         return np.array([self.__calculate_theta(action) for action in range(self.K)])
 
-    def __calculate_theta(self, action):
+    def __calculate_theta(self, action: Action) -> NDArray[float64]:
         return self.bayesian_state.get_sample_for_action(action, self.M)

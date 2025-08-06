@@ -1,13 +1,13 @@
-from ray.util.multiprocessing import Pool
+from functools import partial
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
 from cyclopts import App
-from functools import partial
-from icecream import ic
-
-from setting import init_setting, get_settings, Settings
+from numpy import float64
+from numpy.typing import NDArray
+from ray.util.multiprocessing import Pool
+from tqdm import tqdm
 
 from bandits import (
     BaseBanditEnv,
@@ -29,7 +29,10 @@ from bayesian_state import (
     GaussianGaussianState,
     LinearGaussianState,
 )
+from common import Reward
 
+# from icecream import ic
+from setting import Settings, get_settings, init_setting
 
 app = App()
 
@@ -75,19 +78,25 @@ def get_algorithms(settings: Settings) -> list[tuple[str, type[BaseAlgorithm], d
         ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
         ("TS", ThompsonSamplingAlgorithm, {}),
         ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
-        ("V-IDS argmin", VarianceIDSAlgorithm, {"M": V_IDS_samples, "use_argmin": True}),
+        (
+            "V-IDS argmin",
+            VarianceIDSAlgorithm,
+            {"M": V_IDS_samples, "use_argmin": True},
+        ),
     ]
 
 
 # TODO: move this function somewhere else
-def cumulative_regret(bandit_env, rewards):
+def cumulative_regret(
+    bandit_env: BaseBanditEnv, rewards: NDArray[Reward]
+) -> NDArray[Reward]:
     T = len(rewards)
     optimal_reward = bandit_env.optimal_mean
     cumulative_reward = np.cumulative_sum(rewards)
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
 
-def trial(_, settings: Settings):
+def trial(_: Any, settings: Settings) -> tuple[NDArray[Reward], NDArray[float64]]:
     algorithms = get_algorithms(settings)
     num_algs = len(algorithms)
 
@@ -120,11 +129,13 @@ def trial(_, settings: Settings):
 
 
 @app.default()
-def main(num_trials: int = 100,
-         num_processes: int = 10,
-         T: int = 500,
-         V_IDS_samples: int = 10000,
-         num_arms: int = 10) -> None:
+def main(
+    num_trials: int = 100,
+    num_processes: int = 10,
+    T: int = 500,
+    V_IDS_samples: int = 10000,
+    num_arms: int = 10,
+) -> None:
     """Bandit simulation.
 
     Parameters
