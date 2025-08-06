@@ -1,13 +1,10 @@
-from ray.util.multiprocessing import Pool
+from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
-from tqdm import tqdm
 from cyclopts import App
-from functools import partial
-# from icecream import ic
-
-from setting import init_setting, get_settings, Settings
+from ray.util.multiprocessing import Pool
+from tqdm import tqdm
 
 from bandits import (
     BaseBanditEnv,
@@ -30,6 +27,8 @@ from bayesian_state import (
     LinearGaussianState,
 )
 
+# from icecream import ic
+from setting import Settings, get_settings, init_setting
 
 app = App()
 

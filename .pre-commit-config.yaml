@@ -5,7 +5,7 @@ repos:
     rev: v0.12.7 # Use the latest stable version of Ruff
     hooks:
       - id: ruff
-        args: [--fix, ---select, I --exit-non-zero-on-fix] # Optional: automatically fix issues and exit with non-zero on fix
+        args: [--fix, --exit-non-zero-on-fix, --select, I] # Optional: automatically fix issues and exit with non-zero on fix
       - id: ruff-format
 
   # Mypy for type checking

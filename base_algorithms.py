@@ -9,8 +9,7 @@ from scipy.optimize import minimize_scalar
 
 from bandits import BaseBanditEnv, LinearBanditEnv
 from bayesian_state import BaseBayesianState
-
-from common import Reward, Action
+from common import Action, Reward
 
 DEBUG = False
 

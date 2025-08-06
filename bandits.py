@@ -5,11 +5,12 @@ Environments rely on specific implementation of arms. For example, the
 BernoulliBanditEnv instantiates Bernoulli arms.
 """
 
-from typing import Protocol, TypeVar, Generic
+from typing import Generic, Protocol, TypeVar
 
 import numpy as np
 from numpy import float64, int_
 from numpy.typing import NDArray
+
 from common import Action
 
 T = TypeVar("T", covariant=True)

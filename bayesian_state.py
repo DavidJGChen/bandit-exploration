@@ -13,8 +13,7 @@ from bandits import (
     LinearBanditEnv,
     PoissonBanditEnv,
 )
-
-from common import Reward, Action
+from common import Action, Reward
 
 
 class BaseBayesianState[BanditEnv: BaseBanditEnv](ABC):
