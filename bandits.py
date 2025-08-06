@@ -63,8 +63,8 @@ class LinearArm:
 
 
 class BaseBanditEnv(Generic[P]):
-    def __init__(self, k: int):
-        self.k = k
+    def __init__(self, K: int):
+        self.K = K
         self.arms: list[P] = self.initialize_arms()
         self.optimal_action = np.argmax([arm.mean for arm in self.arms])
         self.optimal_mean = self.arms[self.optimal_action].mean
@@ -82,25 +82,25 @@ class BaseBanditEnv(Generic[P]):
 
 class BernoulliBanditEnv(BaseBanditEnv[BernoulliArm]):
     def initialize_arms(self) -> list[BernoulliArm]:
-        thetas: NDArray[float64] = np.random.uniform(0, 1, size=(self.k,))
+        thetas: NDArray[float64] = np.random.uniform(0, 1, size=(self.K,))
         return [BernoulliArm(theta) for theta in thetas]
 
 
 class GaussianBanditEnv(BaseBanditEnv[GaussianArm]):
     def initialize_arms(self) -> list[GaussianArm]:
-        mus: NDArray[float64] = np.random.normal(0, 1, size=(self.k,))
-        etas: NDArray[float64] = np.ones(self.k)
+        mus: NDArray[float64] = np.random.normal(0, 1, size=(self.K,))
+        etas: NDArray[float64] = np.ones(self.K)
         return [GaussianArm(mu, eta) for mu, eta in zip(mus, etas)]
 
 
 class PoissonBanditEnv(BaseBanditEnv[PoissonArm]):
     def initialize_arms(self) -> list[PoissonArm]:
-        rates: NDArray[float64] = np.random.exponential(1.0, size=(self.k,))
+        rates: NDArray[float64] = np.random.exponential(1.0, size=(self.K,))
         return [PoissonArm(rate) for rate in rates]
 
 
 class LinearBanditEnv(BaseBanditEnv[LinearArm]):
-    def __init__(self, k: int, d: int):
+    def __init__(self, K: int, d: int):
         """
         k: number of arms
         d: dimension of feature vector and hidden theta vector.
@@ -108,7 +108,7 @@ class LinearBanditEnv(BaseBanditEnv[LinearArm]):
         self.d = d
         self.theta: NDArray[float64]
         self.phi: NDArray[float64]
-        super().__init__(k)
+        super().__init__(K)
 
     def initialize_arms(self) -> list[LinearArm]:
         mean_vec: NDArray[float64] = np.zeros(self.d)
@@ -116,7 +116,7 @@ class LinearBanditEnv(BaseBanditEnv[LinearArm]):
         feature_radius = 1 / np.sqrt(5)
         self.theta = np.random.multivariate_normal(mean_vec, covariance)
         features: NDArray[float64] = np.random.uniform(
-            -feature_radius, feature_radius, size=(self.k, self.d)
+            -feature_radius, feature_radius, size=(self.K, self.d)
         )
         self.phi = features
         return [LinearArm(feature, self.theta) for feature in features]

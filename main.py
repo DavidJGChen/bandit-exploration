@@ -1,8 +1,11 @@
 from functools import partial
+from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
 from cyclopts import App
+from numpy import float64
+from numpy.typing import NDArray
 from ray.util.multiprocessing import Pool
 from tqdm import tqdm
 
@@ -26,6 +29,7 @@ from bayesian_state import (
     GaussianGaussianState,
     LinearGaussianState,
 )
+from common import Reward
 
 # from icecream import ic
 from setting import Settings, get_settings, init_setting
@@ -83,14 +87,16 @@ def get_algorithms(settings: Settings) -> list[tuple[str, type[BaseAlgorithm], d
 
 
 # TODO: move this function somewhere else
-def cumulative_regret(bandit_env, rewards):
+def cumulative_regret(
+    bandit_env: BaseBanditEnv, rewards: NDArray[Reward]
+) -> NDArray[Reward]:
     T = len(rewards)
     optimal_reward = bandit_env.optimal_mean
     cumulative_reward = np.cumulative_sum(rewards)
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
 
-def trial(_, settings: Settings):
+def trial(_: Any, settings: Settings) -> NDArray[Reward, float64]:
     algorithms = get_algorithms(settings)
     num_algs = len(algorithms)
 
