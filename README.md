@@ -1,13 +1,13 @@
 # bandit-exploration
 
 ## General todo:
-- Finish adding typing (mypy or ty)
-- Move requirements-dev.txt to pyproject.toml
+- ~~Finish adding typing (mypy or ty)~~
+- ~~Move requirements-dev.txt to pyproject.toml~~
 - Add random seed to make results deterministic
 - Clean up images into a proper output file
 - Add result saving
 - Add basic testing
-- Add pre-commit
+- ~~Add pre-commit~~
 - Add command line args
 - Add doc-strings
 
@@ -19,3 +19,4 @@
 - Improve IDS action selection
 - Get CVXPY to work?? -- (I'll need to reformulate in terms of quad_over_lin)
 - Implement base IDS (non variance version)
+- Add uncertainty intervals to regret plots
