@@ -96,7 +96,7 @@ def cumulative_regret(
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
 
-def trial(_: Any, settings: Settings) -> NDArray[Reward, float64]:
+def trial(_: Any, settings: Settings) -> tuple[NDArray[Reward], NDArray[float64]]:
     algorithms = get_algorithms(settings)
     num_algs = len(algorithms)
 
