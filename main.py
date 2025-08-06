@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import tqdm
 from cyclopts import App
 from functools import partial
-from icecream import ic
+# from icecream import ic
 
 from setting import init_setting, get_settings, Settings
 
@@ -75,7 +75,11 @@ def get_algorithms(settings: Settings) -> list[tuple[str, type[BaseAlgorithm], d
         ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
         ("TS", ThompsonSamplingAlgorithm, {}),
         ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
-        ("V-IDS argmin", VarianceIDSAlgorithm, {"M": V_IDS_samples, "use_argmin": True}),
+        (
+            "V-IDS argmin",
+            VarianceIDSAlgorithm,
+            {"M": V_IDS_samples, "use_argmin": True},
+        ),
     ]
 
 
@@ -120,11 +124,13 @@ def trial(_, settings: Settings):
 
 
 @app.default()
-def main(num_trials: int = 100,
-         num_processes: int = 10,
-         T: int = 500,
-         V_IDS_samples: int = 10000,
-         num_arms: int = 10) -> None:
+def main(
+    num_trials: int = 100,
+    num_processes: int = 10,
+    T: int = 500,
+    V_IDS_samples: int = 10000,
+    num_arms: int = 10,
+) -> None:
     """Bandit simulation.
 
     Parameters

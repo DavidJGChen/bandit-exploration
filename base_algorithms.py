@@ -10,10 +10,9 @@ from scipy.optimize import minimize_scalar
 from bandits import BaseBanditEnv, LinearBanditEnv
 from bayesian_state import BaseBayesianState
 
-DEBUG = False
+from common import Reward, Action
 
-Reward = float64
-Action = int_
+DEBUG = False
 
 
 class BaseAlgorithm(ABC):
