@@ -17,3 +17,14 @@ dependencies = [
     "loguru<1.0",
     "icecream>=2.0.0,<3.0.0"
 ]
+
+[dependency-groups]
+dev = [
+    "mypy>=1.17.1",
+    "pre-commit>=4.3.0",
+    "pytest>=8.4.1",
+    "ruff>=0.12.8",
+    "scipy-stubs>=1.16.1.0",
+    "types-tqdm>=4.67.0.20250809",
+    "viztracer>=1.0.4",
+]

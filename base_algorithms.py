@@ -300,7 +300,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
 
         return reward, action
 
-    def __ids_action_scipy(self, delta: float64, v) -> int_:
+    def __ids_action_scipy(self, delta: NDArray[float64], v) -> int_:
         min_ratio: float | None = None
         min_pair: tuple[int, int] = (0, 0)
         q_min: float = 0.0
@@ -321,7 +321,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                     min_pair = (a1, a2)
         return np.int_(min_pair[0] if np.random.random() < q_min else min_pair[1])
 
-    def __ids_action_cvxpy(self, delta: float64, v) -> int_:
+    def __ids_action_cvxpy(self, delta: NDArray[float64], v) -> int_:
         min_ratio: float | None = None
         min_pair: tuple[int, int] = (0, 0)
         q_min: float = 0.0

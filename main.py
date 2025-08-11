@@ -182,7 +182,7 @@ def main(
     plt.xlabel("timestep t")
     plt.ylabel("cumulative regret")
     plt.legend()
-    plt.savefig(f"{output}.png")
+    plt.savefig(f"images/{output}.png")
     plt.show()
 
     for i in range(num_algs):
@@ -199,7 +199,7 @@ def main(
     plt.yscale("log")
     plt.xscale("log")
     plt.legend()
-    plt.savefig(f"{output}_log.png")
+    plt.savefig(f"images/{output}_log.png")
     plt.show()
 
 
