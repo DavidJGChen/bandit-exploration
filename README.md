@@ -9,6 +9,7 @@
 - ~~Add pre-commit~~
 - Add command line args
 - Add doc-strings
+- Better integrate tqdm with multiprocessing. (For low trials, high T).
 
 ## Performance todo:
 - Integrate better with Ray
@@ -19,3 +20,4 @@
 - Get CVXPY to work?? -- (I'll need to reformulate in terms of quad_over_lin)
 - Implement base IDS (non variance version)
 - Add uncertainty intervals to regret plots
+- Implement AI alignment bandit setting and algorithms for it.

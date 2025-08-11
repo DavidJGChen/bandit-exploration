@@ -75,9 +75,9 @@ def get_algorithms(settings: Settings) -> list[tuple[str, type[BaseAlgorithm], d
         #     EpsilonGreedyAlgorithm,
         #     {"epsilon_func": lambda t: 1.0 if t < 200 else 0.0},
         # ),
-        ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
+        # ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
         ("TS", ThompsonSamplingAlgorithm, {}),
-        ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
+        # ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
         (
             "V-IDS argmin",
             VarianceIDSAlgorithm,

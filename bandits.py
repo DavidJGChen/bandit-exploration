@@ -61,6 +61,7 @@ class LinearArm:
     def sample(self) -> float64:
         return self.mean + np.random.standard_normal()
 
+# ------------------------------------------------
 
 class BaseBanditEnv(Generic[P]):
     def __init__(self, K: int):
