@@ -32,7 +32,9 @@ class BaseAlgorithm(ABC):
         self.bayesian_state = bayesian_state
         self.K = self.bandit_env.K
 
-    def run(self, T: int, trial_num: int) -> tuple[NDArray[Reward], NDArray[Action], list[dict | None]]:
+    def run(
+        self, T: int, trial_num: int
+    ) -> tuple[NDArray[Reward], NDArray[Action], list[dict | None]]:
         self.__reset_state(T)
 
         prog_bar = tqdm_ray.tqdm(total=T, desc=f"trial: {trial_num}")

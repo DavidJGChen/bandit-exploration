@@ -120,6 +120,7 @@ def cumulative_regret(
     cumulative_reward = np.cumulative_sum(rewards)
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
+
 def trial(
     trial_num: int, settings: Settings
 ) -> tuple[int, NDArray[Reward], NDArray[float64]]:
@@ -165,7 +166,6 @@ def trial(
     return trial_num, all_regrets, all_actions
 
 
-
 @app.default()
 def main(
     num_trials: int = 100,
@@ -193,7 +193,9 @@ def main(
     today = datetime.now()
     output_dir = f"output/{today.strftime('%Y%m%d-%H-%M')}-{bandit_env_config[3]}"
 
-    init_setting(num_trials, num_processes, T, V_IDS_samples, num_arms, base_seed, output_dir)
+    init_setting(
+        num_trials, num_processes, T, V_IDS_samples, num_arms, base_seed, output_dir
+    )
     setting = get_settings()
 
     os.makedirs(output_dir)
@@ -224,16 +226,16 @@ def main(
     # ------------------------------------------------------------------
 
     trial_num = 6
-    _, r, actions =trial(trial_num, settings=setting)
+    _, r, actions = trial(trial_num, settings=setting)
     seed = base_seed + trial_num
     for alg_config in algorithms:
         filename = f"{trial_num}_{alg_config.label}_seed{seed}.npy"
-        with open(os.path.join(output_dir, f"regrets_{filename}"), 'wb') as f:
+        with open(os.path.join(output_dir, f"regrets_{filename}"), "wb") as f:
             np.save(f, r)
-        with open(os.path.join(output_dir, f"actions_{filename}"), 'wb') as f:
+        with open(os.path.join(output_dir, f"actions_{filename}"), "wb") as f:
             np.save(f, actions)
 
-    # ------------------------------------------------------------------    
+    # ------------------------------------------------------------------
 
     regrets = np.zeros((num_trials, num_algs, T), dtype=Reward)
     chosen_actions = np.zeros((num_trials, num_algs, T), dtype=Action)
@@ -242,9 +244,9 @@ def main(
         seed = base_seed + trial_num
         for alg_config in algorithms:
             filename = f"{trial_num}_{alg_config.label}_seed{seed}.npy"
-            with open(os.path.join(output_dir, f"regrets_{filename}"), 'rb') as f:
+            with open(os.path.join(output_dir, f"regrets_{filename}"), "rb") as f:
                 regrets[trial_num] = np.load(f)
-            with open(os.path.join(output_dir, f"actions_{filename}"), 'rb') as f:
+            with open(os.path.join(output_dir, f"actions_{filename}"), "rb") as f:
                 chosen_actions[trial_num] = np.load(f)
 
     regret_means = np.mean(regrets, axis=0)

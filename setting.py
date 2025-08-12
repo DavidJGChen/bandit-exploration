@@ -7,7 +7,7 @@ class Settings:
         V_IDS_samples: int,
         num_arms: int,
         base_seed: int,
-        output_dir: str
+        output_dir: str,
     ) -> None:
         self.num_trials: int = num_trials
         self.num_processes: int = num_processes
@@ -28,7 +28,7 @@ def init_setting(
     V_IDS_samples: int = 10000,
     num_arms: int = 10,
     base_seed: int = 0,
-    output_dir: str = "output/temp/"
+    output_dir: str = "output/temp/",
 ) -> None:
     global _settings
     _settings = Settings(

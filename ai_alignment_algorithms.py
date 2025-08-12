@@ -3,6 +3,8 @@ import numpy as np
 from icecream import ic
 from numpy import float64
 from numpy.typing import NDArray
+from collections.abc import Callable
+
 
 from bandits import BaseBanditEnv, BernoulliAlignmentBanditEnv
 from base_algorithms import BaseAlgorithm
@@ -23,6 +25,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
         M: int,
         use_argmin: bool = False,
     ):
+        # Not the best way to do this, but need this hack for now.
         if type(bandit_env) is not BernoulliAlignmentBanditEnv:
             raise TypeError(
                 f"Algorithm is only valid with {BernoulliAlignmentBanditEnv}"
@@ -33,7 +36,6 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
             )
         self.M = M  # number of samples for MCMC
         self.use_argmin = use_argmin
-        # Not the best way to do this, but need this hack for now.
         super().__init__(bandit_env, bayesian_state)
 
     def reset_algorithm_state(self) -> None:
@@ -56,7 +58,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
         constraints = [0 <= pi, pi <= 1, cp.sum(pi) == 1.0]
         prob = cp.Problem(objective, constraints)
         action: Action
-        
+
         argmin = False
         info_ratio: float64
         try:
@@ -85,7 +87,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
             index = action - self.bandit_env.K_env
             self.theta_samples[index] = self.__calculate_param(action)
 
-        return output.reward, action, {'argmin': argmin, 'info_ratio': info_ratio}
+        return output.reward, action, {"argmin": argmin, "info_ratio": info_ratio}
 
     def __calculate_params(self) -> NDArray[float64]:
         all_params = np.array(
@@ -95,3 +97,40 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
 
     def __calculate_param(self, action: Action) -> NDArray[float64]:
         return self.bayesian_state.get_sample_for_action(action, self.M)
+
+
+# ------------------------------------------------
+
+
+class EpsilonThompsonSamplingAlignmentAlgorithm(BaseAlgorithm):
+    def __init__(
+        self,
+        bandit_env: BaseBanditEnv,
+        bayesian_state: BaseBayesianState,
+        epsilon_func: Callable[[int], float],
+    ):
+        # Not the best way to do this, but need this hack for now.
+        if type(bandit_env) is not BernoulliAlignmentBanditEnv:
+            raise TypeError(
+                f"Algorithm is only valid with {BernoulliAlignmentBanditEnv}"
+            )
+        if type(bayesian_state) is not BetaBernoulliAlignmentState:
+            raise TypeError(
+                f"Algorithm is only valid with {BetaBernoulliAlignmentState}"
+            )
+        super().__init__(bandit_env, bayesian_state)
+
+    def reset_algorithm_state(self) -> None: ...
+
+    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+        if t < self.K:
+            action = Action(t)
+        else:
+            lambda_hats = self.bayesian_state.get_samples()
+            action = np.argmax(lambda_hats)
+
+        reward = self.bandit_env.sample(action)
+
+        self.bayesian_state.update_posterior(reward, action)
+
+        return reward, action, None
