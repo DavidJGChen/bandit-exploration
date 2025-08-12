@@ -3,7 +3,9 @@ from functools import partial
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 from cyclopts import App
+from datetime import datetime
 from numpy import float64
 from numpy.typing import NDArray
 from ray import ray
@@ -117,11 +119,11 @@ def cumulative_regret(
     cumulative_reward = np.cumulative_sum(rewards)
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
-
 def trial(
     trial_num: int, settings: Settings
 ) -> tuple[int, NDArray[Reward], NDArray[float64]]:
-    np.random.seed(settings.base_seed + trial_num)
+    seed = settings.base_seed + trial_num
+    np.random.seed(seed)
 
     algorithms = get_algorithms(settings)
     num_algs = len(algorithms)
@@ -150,10 +152,12 @@ def trial(
         alg_instance = alg_class(bandit_env, bayesian_state, **kwargs)
         rewards, actions = alg_instance.run(T, trial_num)
         regrets = cumulative_regret(bandit_env, rewards)
+
         regret_sums[i] += regrets
         chosen_actions[i] = actions
 
     return trial_num, regret_sums, actions
+
 
 
 @app.default()
@@ -180,27 +184,46 @@ def main(
     num_arms: int
         The number of bandits arms
     """
+    today = datetime.now()
+    output_dir = f"output/{today.strftime('%Y%m%d-%H-%M')}-{bandit_env_config[3]}"
 
-    init_setting(num_trials, num_processes, T, V_IDS_samples, num_arms, base_seed)
+    init_setting(num_trials, num_processes, T, V_IDS_samples, num_arms, base_seed, output_dir)
     setting = get_settings()
+
+    os.makedirs(output_dir)
 
     algorithms = get_algorithms(setting)
     num_algs = len(algorithms)
 
     np.set_printoptions(precision=3)
 
-    regrets = np.zeros((num_trials, num_algs, T), dtype=Reward)
-    chosen_actions = np.zeros((num_trials, num_algs, T), dtype=Action)
-
     with Pool(processes=num_processes) as pool:
         it = pool.imap(partial(trial, settings=setting), range(num_trials))
         prog_bar = tqdm_ray.tqdm(total=num_trials, position=0, desc="trials")
-        for i, r, actions in it:
-            regrets[i] = r
-            chosen_actions[i] = actions
+        for trial_num, r, actions in it:
+            seed = base_seed + trial_num
+            for alg_config in algorithms:
+                filename = f"{trial_num}_{alg_config.label}_seed{seed}.npy"
+                with open(os.path.join(output_dir, f"regrets_{filename}"), 'wb') as f:
+                    np.save(f, r)
+                with open(os.path.join(output_dir, f"actions_{filename}"), 'wb') as f:
+                    np.save(f, actions)
+
             prog_bar.update(1)
 
     ray.shutdown()
+
+    regrets = np.zeros((num_trials, num_algs, T), dtype=Reward)
+    chosen_actions = np.zeros((num_trials, num_algs, T), dtype=Action)
+
+    for trial_num in range(num_trials):
+        seed = base_seed + trial_num
+        for alg_config in algorithms:
+            filename = f"{trial_num}_{alg_config.label}_seed{seed}.npy"
+            with open(os.path.join(output_dir, f"regrets_{filename}"), 'rb') as f:
+                regrets[trial_num] = np.load(f)
+            with open(os.path.join(output_dir, f"actions_{filename}"), 'rb') as f:
+                chosen_actions[trial_num] = np.load(f)
 
     # i, r, actions = trial(1, settings=setting)
 
