@@ -18,7 +18,7 @@ from bandits import (
 )
 from base_algorithms import (
     BaseAlgorithm,
-    BayesUCBAlgorithm,
+    # BayesUCBAlgorithm,
     ThompsonSamplingAlgorithm,
     VarianceIDSAlgorithm,
 )

@@ -159,15 +159,19 @@ class BernoulliAlignmentBanditEnv(BaseBanditEnv[_BernoulliAlignmentArmPair]):
         if K % 2 != 0:
             raise ValueError("K must be a positive even integer.")
         self.K_env = K // 2
+        self.K_human = self.K_env # defined for convenience.
         super().__init__(K)
 
     def initialize_arms(self) -> list[_BernoulliAlignmentArmPair]:
         params: NDArray[float64] = np.random.uniform(0, 1, size=(self.K_env, 2))
         return [_BernoulliAlignmentArmPair(phi, theta) for phi, theta in params]
 
+    def is_env(self, action: Action) -> bool:
+        return int(action) < self.K_env
+
     def sample(self, action: Action) -> SampleOutput:
         try:
-            if action < self.K_env:  # environment action
+            if self.is_env(action):  # environment action
                 return self.arms[action].sample()
             else:  # human-query action
                 return self.arms[action - self.K_env].sample_human()

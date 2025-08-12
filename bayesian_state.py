@@ -12,8 +12,9 @@ from bandits import (
     GaussianBanditEnv,
     LinearBanditEnv,
     PoissonBanditEnv,
+    BernoulliAlignmentBanditEnv,
 )
-from common import Action, Reward
+from common import Action, Reward, SampleOutput
 
 
 class BaseBayesianState[BanditEnv: BaseBanditEnv](ABC):
@@ -220,3 +221,48 @@ class LinearGaussianState(BaseBayesianState[LinearBanditEnv]):
     def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
         # I think this may be wrong?, but it's ok I don't use this
         return self.get_theta_samples(size=size)[action]
+
+# ------------------------------------------------
+
+
+class BetaBernoulliAlignmentState(BaseBayesianState[BernoulliAlignmentBanditEnv]):
+    alpha_phis: NDArray[int_]
+    beta_phis: NDArray[int_]
+    alpha_thetas: NDArray[int_]
+    beta_thetas: NDArray[int_]
+    bandit_env: BernoulliAlignmentBanditEnv
+
+    def __init__(self, bandit_env: BernoulliAlignmentBanditEnv) -> None:
+        self.bandit_env = bandit_env
+
+    def reset_state(self) -> None:
+        self.alpha_phis = np.ones(self.bandit_env.K_env, dtype=int_)
+        self.beta_phis = np.ones(self.bandit_env.K_env, dtype=int_)
+        self.alpha_thetas = np.ones(self.bandit_env.K_human, dtype=int_)
+        self.beta_thetas = np.ones(self.bandit_env.K_human, dtype=int_)
+
+    def update_posterior_with_outcomes(self, output: SampleOutput, action: Action) -> None:
+        if self.bandit_env.is_env(action):
+            self.alpha_phis[action] += output.outcome
+            self.beta_phis[action] += 1 - output.outcome
+        else:
+            index: Action = action - self.bandit_env.K_env
+            self.alpha_thetas[index] += output.outcome
+            self.beta_thetas[index] += 1 - output.outcome
+
+    def get_means(self) -> NDArray[Reward]:
+        phi_means = self.alpha_phis / (self.alpha_phis + self.beta_phis)
+        theta_means = self.alpha_thetas / (self.alpha_thetas + self.beta_thetas)
+
+        reward_means = phi_means * theta_means + (1 - phi_means) * (1 - theta_means)
+
+        return np.hstack([reward_means, -np.ones(self.bandit_env.K_human)])
+
+    def get_quantiles(self, quantile: float64) -> NDArray[float64]:
+        ...
+
+    def get_samples(self) -> NDArray[float64]:
+        ...
+
+    def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
+        ...
