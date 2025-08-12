@@ -11,7 +11,7 @@ import numpy as np
 from numpy import float64, int_
 from numpy.typing import NDArray
 
-from common import Action
+from common import Action, Reward, SampleOutput
 
 T = TypeVar("T", covariant=True)
 
@@ -19,7 +19,7 @@ T = TypeVar("T", covariant=True)
 class BanditsArm(Protocol[T]):
     mean: float64
 
-    def sample(self) -> T: ...
+    def sample(self) -> T | SampleOutput: ...
 
 
 P = TypeVar("P", bound=BanditsArm)
@@ -61,7 +61,38 @@ class LinearArm:
     def sample(self) -> float64:
         return self.mean + np.random.standard_normal()
 
+
+class BernoulliAlignmentArmPair:
+    def __init__(self, phi: float64, theta: float64):
+        self.phi = phi
+        self.theta = theta
+        self.mean = phi * theta + (1 - phi) * (1 - theta)
+
+    def sample(self) -> SampleOutput:
+        """
+        returns a tuple of:
+            (outcome, reward, is_reward_observed)
+        """
+        return self.__sample_env()
+
+    def __reward(self, outcome: int) -> Reward:
+        return self.theta if outcome == 1 else 1 - self.theta
+
+    def __sample_env(self) -> SampleOutput:
+        outcome = 1 if np.random.rand() < self.phi else 0
+        return SampleOutput(
+            outcome=np.float64(outcome), reward=self.__reward(outcome), reward_obs=False
+        )
+
+    def sample_human(self) -> SampleOutput:
+        outcome = 1 if np.random.rand() < self.theta else 0
+        return SampleOutput(
+            outcome=np.float64(outcome), reward=np.float64(-1.0), reward_obs=True
+        )
+
+
 # ------------------------------------------------
+
 
 class BaseBanditEnv(Generic[P]):
     def __init__(self, K: int):
@@ -73,7 +104,7 @@ class BaseBanditEnv(Generic[P]):
     def initialize_arms(self) -> list[P]:
         raise NotImplementedError
 
-    def sample(self, action: Action) -> float64:
+    def sample(self, action: Action) -> float64 | SampleOutput:
         try:
             return self.arms[action].sample()
         except KeyError as e:
@@ -121,3 +152,25 @@ class LinearBanditEnv(BaseBanditEnv[LinearArm]):
         )
         self.phi = features
         return [LinearArm(feature, self.theta) for feature in features]
+
+
+class BernoulliAlignmentBanditEnv(BaseBanditEnv[BernoulliAlignmentArmPair]):
+    def __init__(self, K: int):
+        if K % 2 != 0:
+            raise ValueError("K must be a positive even integer.")
+        self.K_env = K // 2
+        super().__init__(K)
+
+    def initialize_arms(self) -> list[BernoulliAlignmentArmPair]:
+        params: NDArray[float64] = np.random.uniform(0, 1, size=(self.K_env, 2))
+        return [BernoulliAlignmentArmPair(phi, theta) for phi, theta in params]
+
+    def sample(self, action: Action) -> SampleOutput:
+        try:
+            if action < self.K_env:  # environment action
+                return self.arms[action].sample()
+            else:  # human-query action
+                return self.arms[action - self.K_env].sample_human()
+        except KeyError as e:
+            print("Action invalid:", e)
+            raise
