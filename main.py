@@ -6,8 +6,9 @@ import numpy as np
 from cyclopts import App
 from numpy import float64
 from numpy.typing import NDArray
+from ray import ray
 from ray.util.multiprocessing import Pool
-from tqdm import tqdm
+from ray.experimental import tqdm_ray
 
 from bandits import (
     BaseBanditEnv,
@@ -15,12 +16,13 @@ from bandits import (
     GaussianBanditEnv,
     LinearBanditEnv,
     PoissonBanditEnv,
+    BernoulliAlignmentBanditEnv
 )
 from base_algorithms import (
     BaseAlgorithm,
     # BayesUCBAlgorithm,
-    ThompsonSamplingAlgorithm,
-    VarianceIDSAlgorithm,
+    # ThompsonSamplingAlgorithm,
+    # VarianceIDSAlgorithm,
 )
 from bayesian_state import (
     BaseBayesianState,
@@ -28,6 +30,10 @@ from bayesian_state import (
     GammaPoissonState,
     GaussianGaussianState,
     LinearGaussianState,
+    BetaBernoulliAlignmentState
+)
+from ai_alignment_algorithms import(
+    IDSAlignmentAlgorithm
 )
 from common import Reward
 
@@ -53,8 +59,9 @@ bandit_env_configs: dict[
         {"d": 5},
         "linear",
     ),
+    "Beta-Bernoulli Alignment Bandit": (BernoulliAlignmentBanditEnv, BetaBernoulliAlignmentState, {}, "alignment"),
 }
-bandit_env_name = "Beta-Bernoulli Bandit"
+bandit_env_name = "Beta-Bernoulli Alignment Bandit"
 bandit_env_config = bandit_env_configs[bandit_env_name]
 
 
@@ -76,13 +83,14 @@ def get_algorithms(settings: Settings) -> list[tuple[str, type[BaseAlgorithm], d
         #     {"epsilon_func": lambda t: 1.0 if t < 200 else 0.0},
         # ),
         # ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
-        ("TS", ThompsonSamplingAlgorithm, {}),
+        # ("TS", ThompsonSamplingAlgorithm, {}),
         # ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
-        (
-            "V-IDS argmin",
-            VarianceIDSAlgorithm,
-            {"M": V_IDS_samples, "use_argmin": True},
-        ),
+        # (
+        #     "V-IDS argmin",
+        #     VarianceIDSAlgorithm,
+        #     {"M": V_IDS_samples, "use_argmin": True},
+        # ),
+        ("IDS", IDSAlignmentAlgorithm, {"M": V_IDS_samples})
     ]
 
 
@@ -96,7 +104,7 @@ def cumulative_regret(
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
 
-def trial(_: Any, settings: Settings) -> tuple[NDArray[Reward], NDArray[float64]]:
+def trial(trial_num: int, settings: Settings) -> tuple[NDArray[Reward], NDArray[float64]]:
     algorithms = get_algorithms(settings)
     num_algs = len(algorithms)
 
@@ -120,7 +128,7 @@ def trial(_: Any, settings: Settings) -> tuple[NDArray[Reward], NDArray[float64]
 
     for i, (_, alg, kwargs) in enumerate(algorithms):
         alg_instance = alg(bandit_env, bayesian_state, **kwargs)
-        rewards, _ = alg_instance.run(T)
+        rewards, _ = alg_instance.run(T, trial_num)
         regrets = cumulative_regret(bandit_env, rewards)
         regret_sums[i] += regrets
         regret_sq_sums[i] += np.square(regrets)
@@ -165,9 +173,17 @@ def main(
 
     with Pool(processes=num_processes) as pool:
         it = pool.imap(partial(trial, settings=setting), range(num_trials))
-        for r, r_s in tqdm(it, total=num_trials, smoothing=0.1):
+        prog_bar = tqdm_ray.tqdm(total=num_trials, position=0, desc="trials")
+        for r, r_s in it:
             regret_sums += r
             regret_sq_sums += r_s
+            prog_bar.update(1)
+
+    ray.shutdown()
+
+    # r, r_s = trial(1, settings=setting)
+    # regret_sums += r
+    # regret_sq_sums += r_s
 
     """
     Section below is for plotting
@@ -175,6 +191,7 @@ def main(
     title = bandit_env_name
     output = bandit_env_config[3]
 
+    plt.figure(figsize=(5,5))
     for i in range(num_algs):
         plt.plot(regret_sums[i] / num_trials, label=algorithms[i][0])
     # plt.xlim(left=0, right=T)
@@ -185,12 +202,17 @@ def main(
     plt.savefig(f"images/{output}.png")
     plt.show()
 
+
+    # log log plot
+    plt.figure(figsize=(5,5))
     for i in range(num_algs):
-        plt.plot(regret_sums[i] / num_trials, label=algorithms[i][0])
+        plt.plot(np.arange(10, T), regret_sums[i][10:] / num_trials, label=algorithms[i][0])
     # lines for comparison
-    x = np.arange(1, T)
-    y = 8 * np.sqrt(x)
-    plt.plot(x, y, "k--")
+    x = np.arange(10, T)
+    sqrt_x = 30 * np.sqrt(x)
+
+    plt.plot(x, x, "k--")
+    plt.plot(x, sqrt_x, "k--")
     # plt.xlim(left=0, right=T)
     # plt.ylim(bottom=0, top=120)
     plt.title(title)

@@ -159,7 +159,7 @@ class BernoulliAlignmentBanditEnv(BaseBanditEnv[_BernoulliAlignmentArmPair]):
         if K % 2 != 0:
             raise ValueError("K must be a positive even integer.")
         self.K_env = K // 2
-        self.K_human = self.K_env # defined for convenience.
+        self.K_human = self.K_env  # defined for convenience.
         super().__init__(K)
 
     def initialize_arms(self) -> list[_BernoulliAlignmentArmPair]:

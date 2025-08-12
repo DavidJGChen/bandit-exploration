@@ -222,6 +222,7 @@ class LinearGaussianState(BaseBayesianState[LinearBanditEnv]):
         # I think this may be wrong?, but it's ok I don't use this
         return self.get_theta_samples(size=size)[action]
 
+
 # ------------------------------------------------
 
 
@@ -230,6 +231,9 @@ class BetaBernoulliAlignmentState(BaseBayesianState[BernoulliAlignmentBanditEnv]
     beta_phis: NDArray[int_]
     alpha_thetas: NDArray[int_]
     beta_thetas: NDArray[int_]
+    mutual_info_phis: NDArray[float64]
+    mutual_info_thetas: NDArray[float64]
+    reward_means: NDArray[Reward]
     bandit_env: BernoulliAlignmentBanditEnv
 
     def __init__(self, bandit_env: BernoulliAlignmentBanditEnv) -> None:
@@ -241,28 +245,110 @@ class BetaBernoulliAlignmentState(BaseBayesianState[BernoulliAlignmentBanditEnv]
         self.alpha_thetas = np.ones(self.bandit_env.K_human, dtype=int_)
         self.beta_thetas = np.ones(self.bandit_env.K_human, dtype=int_)
 
-    def update_posterior_with_outcomes(self, output: SampleOutput, action: Action) -> None:
+        phi_means = self.alpha_phis / (self.alpha_phis + self.beta_phis)
+        theta_means = self.alpha_thetas / (self.alpha_thetas + self.beta_thetas)
+
+        self.reward_means = phi_means * theta_means + (1 - phi_means) * (
+            1 - theta_means
+        )
+
+        self.mutual_info_phis, self.mutual_info_thetas = self.__calculate_mutual_infos()
+
+    def update_posterior(self, reward: Reward, action: Action) -> None:
+        raise NotImplementedError
+
+    def update_posterior_with_outcomes(
+        self, output: SampleOutput, action: Action
+    ) -> None:
         if self.bandit_env.is_env(action):
-            self.alpha_phis[action] += output.outcome
-            self.beta_phis[action] += 1 - output.outcome
+            index = action
+            self.alpha_phis[index] += output.outcome
+            self.beta_phis[index] += 1 - output.outcome
         else:
             index: Action = action - self.bandit_env.K_env
             self.alpha_thetas[index] += output.outcome
             self.beta_thetas[index] += 1 - output.outcome
 
+        phi_mean = self.alpha_phis[index] / (
+            self.alpha_phis[index] + self.beta_phis[index]
+        )
+        theta_mean = self.alpha_thetas[index] / (
+            self.alpha_thetas[index] + self.beta_thetas[index]
+        )
+
+        self.reward_means[index] = phi_mean * theta_mean + (1 - phi_mean) * (
+            1 - theta_mean
+        )
+
+        self.mutual_info_phis[index], self.mutual_info_thetas[index] = (
+            self.__calculate_mutual_infos(action)
+        )
+
     def get_means(self) -> NDArray[Reward]:
-        phi_means = self.alpha_phis / (self.alpha_phis + self.beta_phis)
-        theta_means = self.alpha_thetas / (self.alpha_thetas + self.beta_thetas)
+        return np.hstack([self.reward_means, -np.ones(self.bandit_env.K_human)])
 
-        reward_means = phi_means * theta_means + (1 - phi_means) * (1 - theta_means)
+    def get_quantiles(self, quantile: float64) -> NDArray[float64]: ...
 
-        return np.hstack([reward_means, -np.ones(self.bandit_env.K_human)])
-
-    def get_quantiles(self, quantile: float64) -> NDArray[float64]:
-        ...
-
-    def get_samples(self) -> NDArray[float64]:
-        ...
+    def get_samples(self) -> NDArray[float64]: ...
 
     def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
-        ...
+        if self.bandit_env.is_env(action):
+            return np.random.beta(
+                self.alpha_phis[action], self.beta_phis[action], size=size
+            )
+        else:
+            index: Action = action - self.bandit_env.K_env
+            return np.random.beta(
+                self.alpha_thetas[index], self.beta_thetas[index], size=size
+            )
+
+    def __calculate_mutual_infos(
+        self, action: None | Action = None
+    ) -> tuple[NDArray[float64], NDArray[float64]]:
+        alpha_phis: NDArray[float64]
+        beta_phis: NDArray[float64]
+        alpha_thetas: NDArray[float64]
+        beta_thetas: NDArray[float64]
+
+        if action is not None:
+            index: Action
+            if self.bandit_env.is_env(action):
+                index = action
+            else:
+                index = action - self.bandit_env.K_env
+
+            alpha_phis = self.alpha_phis[index]
+            beta_phis = self.beta_phis[index]
+            alpha_thetas = self.alpha_thetas[index]
+            beta_thetas = self.beta_thetas[index]
+        else:
+            alpha_phis = self.alpha_phis
+            beta_phis = self.beta_phis
+            alpha_thetas = self.alpha_thetas
+            beta_thetas = self.beta_thetas
+
+        p_phi_0 = beta_phis / (alpha_phis + beta_phis)
+        p_phi_1 = 1 - p_phi_0
+        p_theta_0 = beta_thetas / (alpha_thetas + beta_thetas)
+        p_theta_1 = 1 - p_theta_0
+
+        curr_entropy_phi = scipy.stats.beta.entropy(alpha_phis, beta_phis)
+        curr_entropy_theta = scipy.stats.beta.entropy(alpha_thetas, beta_thetas)
+
+        next_entropy_phi_0 = scipy.stats.beta.entropy(alpha_phis, beta_phis + 1)
+        next_entropy_phi_1 = scipy.stats.beta.entropy(alpha_phis + 1, beta_phis)
+        next_entropy_theta_0 = scipy.stats.beta.entropy(alpha_thetas, beta_thetas + 1)
+        next_entropy_theta_1 = scipy.stats.beta.entropy(alpha_thetas + 1, beta_thetas)
+
+        next_entropy_phi = p_phi_0 * next_entropy_phi_0 + p_phi_1 * next_entropy_phi_1
+        next_entropy_theta = (
+            p_theta_0 * next_entropy_theta_0 + p_theta_1 * next_entropy_theta_1
+        )
+
+        mutual_info_phi = curr_entropy_phi - next_entropy_phi
+        mutual_info_theta = curr_entropy_theta - next_entropy_theta
+
+        return mutual_info_phi, mutual_info_theta
+
+    def get_mutual_infos(self) -> NDArray[Reward]:
+        return np.hstack([self.mutual_info_phis, self.mutual_info_thetas])

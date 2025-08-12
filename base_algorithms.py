@@ -6,6 +6,7 @@ import numpy as np
 from numpy import float64, int_
 from numpy.typing import NDArray
 from scipy.optimize import minimize_scalar
+from ray.experimental import tqdm_ray
 
 from bandits import BaseBanditEnv, LinearBanditEnv
 from bayesian_state import BaseBayesianState
@@ -30,12 +31,16 @@ class BaseAlgorithm(ABC):
         self.bayesian_state = bayesian_state
         self.K = self.bandit_env.K
 
-    def run(self, T: int) -> tuple[NDArray[Reward], NDArray[Action]]:
+    def run(self, T: int, trial_num: int) -> tuple[NDArray[Reward], NDArray[Action]]:
         self.__reset_state(T)
+
+        prog_bar = tqdm_ray.tqdm(total=T, desc=f"trial: {trial_num}")
         for t in range(T):
             reward, action = self.__single_step(t)
             self.reward_history[t] = reward
             self.action_history[t] = action
+            prog_bar.update(1)
+        prog_bar.close()
         return self.reward_history, self.action_history
 
     def __reset_state(self, T: int) -> None:
