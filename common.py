@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from numpy import float64, int_
+from numpy import float64, uint8
 
 Reward = float64
-Action = int_
+Action = uint8
 
 
 @dataclass(frozen=True)

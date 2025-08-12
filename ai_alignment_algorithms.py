@@ -39,7 +39,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         self.phi_samples, self.theta_samples = self.__calculate_params()
 
-    def single_step(self, t: int) -> tuple[Reward, Action]:
+    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         est_rewards = self.bayesian_state.get_means()
         mutual_infos = self.bayesian_state.get_mutual_infos()
 
@@ -56,14 +56,22 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
         constraints = [0 <= pi, pi <= 1, cp.sum(pi) == 1.0]
         prob = cp.Problem(objective, constraints)
         action: Action
+        
+        argmin = False
+        info_ratio: float64
         try:
             prob.solve()
             raw_policy = np.maximum(pi.value, 0.0)
             policy = raw_policy / np.sum(raw_policy)
             action = np.random.choice(self.K, 1, p=policy)[0]
+
+            info_ratio = prob.value
         except Exception as e:
+            argmin = True
             ic(e)
-            action = np.argmin(np.square(R_star - est_rewards) / mutual_infos)
+            info_ratios = np.square(R_star - est_rewards) / mutual_infos
+            action = np.argmin(info_ratios)
+            info_ratio = info_ratios[action]
 
         output: SampleOutput = self.bandit_env.sample(action)
 
@@ -77,7 +85,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
             index = action - self.bandit_env.K_env
             self.theta_samples[index] = self.__calculate_param(action)
 
-        return output.reward, action
+        return output.reward, action, {'argmin': argmin, 'info_ratio': info_ratio}
 
     def __calculate_params(self) -> NDArray[float64]:
         all_params = np.array(

@@ -3,7 +3,7 @@ from collections.abc import Callable
 
 import cvxpy as cp
 import numpy as np
-from numpy import float64, int_
+from numpy import float64
 from numpy.typing import NDArray
 from scipy.optimize import minimize_scalar
 from ray.experimental import tqdm_ray
@@ -20,6 +20,7 @@ class BaseAlgorithm(ABC):
     T: int
     reward_history: NDArray[Reward]
     action_history: NDArray[Action]
+    extra_history: list[dict | None]
     bandit_env: BaseBanditEnv
     K: int
     bayesian_state: BaseBayesianState
@@ -31,27 +32,29 @@ class BaseAlgorithm(ABC):
         self.bayesian_state = bayesian_state
         self.K = self.bandit_env.K
 
-    def run(self, T: int, trial_num: int) -> tuple[NDArray[Reward], NDArray[Action]]:
+    def run(self, T: int, trial_num: int) -> tuple[NDArray[Reward], NDArray[Action], list[dict | None]]:
         self.__reset_state(T)
 
         prog_bar = tqdm_ray.tqdm(total=T, desc=f"trial: {trial_num}")
         for t in range(T):
-            reward, action = self.__single_step(t)
+            reward, action, extra = self.__single_step(t)
             self.reward_history[t] = reward
             self.action_history[t] = action
+            self.extra_history.append(extra)
             prog_bar.update(1)
         prog_bar.close()
-        return self.reward_history, self.action_history
+        return self.reward_history, self.action_history, self.extra_history
 
     def __reset_state(self, T: int) -> None:
         self.t = 0
         self.T = T
         self.reward_history = np.zeros(T)
         self.action_history = np.zeros(T, dtype=Action)
+        self.extra_history = []
         self.bayesian_state.reset_state()
         self.reset_algorithm_state()
 
-    def __single_step(self, t: int) -> tuple[Reward, Action]:
+    def __single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         return self.single_step(t)
 
     @abstractmethod
@@ -59,7 +62,7 @@ class BaseAlgorithm(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def single_step(self, t: int) -> tuple[Reward, Action]:
+    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         raise NotImplementedError
 
 
@@ -73,9 +76,9 @@ class RandomAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         pass
 
-    def single_step(self, t: int) -> tuple[Reward, Action]:
-        action = np.int_(np.random.choice(self.K))
-        return self.bandit_env.sample(action), action
+    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+        action = np.uint8(np.random.choice(self.K))
+        return self.bandit_env.sample(action), action, None
 
 
 # ------------------------------------------------
@@ -94,9 +97,9 @@ class EpsilonGreedyAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         pass
 
-    def single_step(self, t: int) -> tuple[Reward, Action]:
+    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         if np.random.rand() < self.epsilon_func(t):
-            action = np.int_(np.random.choice(self.K))
+            action = np.uint8(np.random.choice(self.K))
         else:
             action = np.argmax(self.bayesian_state.get_means())
 
@@ -104,7 +107,7 @@ class EpsilonGreedyAlgorithm(BaseAlgorithm):
 
         self.bayesian_state.update_posterior(reward, action)
 
-        return reward, action
+        return reward, action, None
 
 
 # ------------------------------------------------
@@ -122,9 +125,9 @@ class BayesUCBAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         self.inv_log_factor = 1 / np.power(np.log(self.T), self.c)
 
-    def single_step(self, t: int) -> tuple[Reward, Action]:
+    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         if t < self.K:
-            action = np.int_(t)
+            action = np.uint8(t)
         else:
             quantile = 1 - (self.inv_log_factor / (t + 1))
             quantiles = self.bayesian_state.get_quantiles(quantile)
@@ -134,7 +137,7 @@ class BayesUCBAlgorithm(BaseAlgorithm):
 
         self.bayesian_state.update_posterior(reward, action)
 
-        return reward, action
+        return reward, action, None
 
 
 # ------------------------------------------------
@@ -146,9 +149,9 @@ class ThompsonSamplingAlgorithm(BaseAlgorithm):
 
     def reset_algorithm_state(self) -> None: ...
 
-    def single_step(self, t: int) -> tuple[Reward, Action]:
+    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         if t < self.K:
-            action = np.int_(t)
+            action = np.uint8(t)
         else:
             lambda_hats = self.bayesian_state.get_samples()
             action = np.argmax(lambda_hats)
@@ -157,7 +160,7 @@ class ThompsonSamplingAlgorithm(BaseAlgorithm):
 
         self.bayesian_state.update_posterior(reward, action)
 
-        return reward, action
+        return reward, action, None
 
 
 # ------------------------------------------------
@@ -182,9 +185,9 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         self.thetas = self.__calculate_thetas()
 
-    def single_step(self, t: int) -> tuple[Reward, Action]:
+    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         if t < self.K:
-            action = np.int_(t)
+            action = np.uint8(t)
         else:
             # estimated means of action parameters
             if self.is_linear:
@@ -303,9 +306,9 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         else:
             self.thetas[action] = self.__calculate_theta(action)
 
-        return reward, action
+        return reward, action, None
 
-    def __ids_action_scipy(self, delta: NDArray[float64], v) -> int_:
+    def __ids_action_scipy(self, delta: NDArray[float64], v) -> Action:
         min_ratio: float | None = None
         min_pair: tuple[int, int] = (0, 0)
         q_min: float = 0.0
@@ -324,9 +327,9 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                     min_ratio = info_ratio
                     q_min = q
                     min_pair = (a1, a2)
-        return np.int_(min_pair[0] if np.random.random() < q_min else min_pair[1])
+        return Action(min_pair[0] if np.random.random() < q_min else min_pair[1])
 
-    def __ids_action_cvxpy(self, delta: NDArray[float64], v) -> int_:
+    def __ids_action_cvxpy(self, delta: NDArray[float64], v) -> Action:
         min_ratio: float | None = None
         min_pair: tuple[int, int] = (0, 0)
         q_min: float = 0.0
@@ -359,7 +362,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                     min_ratio = info_ratio
                     q_min = opt_q
                     min_pair = (a1, a2)
-        return np.int_(min_pair[0] if np.random.random() < q_min else min_pair[1])
+        return Action(min_pair[0] if np.random.random() < q_min else min_pair[1])
 
     def __calculate_thetas(self) -> NDArray[float64]:
         return np.array([self.__calculate_theta(action) for action in range(self.K)])

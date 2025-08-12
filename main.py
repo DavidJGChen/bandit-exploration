@@ -4,6 +4,7 @@ from functools import partial
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import polars as pl
 from cyclopts import App
 from datetime import datetime
 from numpy import float64
@@ -37,7 +38,7 @@ from bayesian_state import (
 from ai_alignment_algorithms import IDSAlignmentAlgorithm
 from common import Action, Reward
 
-# from icecream import ic
+from icecream import ic
 from setting import Settings, get_settings, init_setting
 
 app = App()
@@ -131,8 +132,9 @@ def trial(
     num_arms = settings.num_arms
     T = settings.T
 
-    regret_sums = np.zeros((num_algs, T))
-    chosen_actions = np.zeros((num_algs, T))
+    all_regrets = np.zeros((num_algs, T))
+    all_actions = np.zeros((num_algs, T))
+    all_extras = []
 
     kwargs = bandit_env_config[2]
     bandit_env = bandit_env_config[0](
@@ -141,22 +143,26 @@ def trial(
     )
     bayesian_state = bandit_env_config[1](bandit_env)
 
-    # ic("theta:")
-    # ic(bandit_env.theta)
-    # ic("means:")
-    # ic(np.array([arm.mean for arm in bandit_env.arms]))
+    ic("means:", np.array([arm.mean for arm in bandit_env.arms]))
+    ic("best mean:", bandit_env.optimal_mean)
 
     for i, alg_config in enumerate(algorithms):
         alg_class = alg_config.algorithm_type
         kwargs = alg_config.extra_params
         alg_instance = alg_class(bandit_env, bayesian_state, **kwargs)
-        rewards, actions = alg_instance.run(T, trial_num)
+        rewards, actions, extras = alg_instance.run(T, trial_num)
         regrets = cumulative_regret(bandit_env, rewards)
 
-        regret_sums[i] += regrets
-        chosen_actions[i] = actions
+        all_regrets[i] = regrets
+        all_actions[i] = actions
+        all_extras.append(extras)
 
-    return trial_num, regret_sums, actions
+    extra_df = pl.from_dicts(all_extras[0])
+    ic(extra_df)
+
+    ic("est means:", bayesian_state.get_means())
+
+    return trial_num, all_regrets, all_actions
 
 
 
@@ -197,21 +203,37 @@ def main(
 
     np.set_printoptions(precision=3)
 
-    with Pool(processes=num_processes) as pool:
-        it = pool.imap(partial(trial, settings=setting), range(num_trials))
-        prog_bar = tqdm_ray.tqdm(total=num_trials, position=0, desc="trials")
-        for trial_num, r, actions in it:
-            seed = base_seed + trial_num
-            for alg_config in algorithms:
-                filename = f"{trial_num}_{alg_config.label}_seed{seed}.npy"
-                with open(os.path.join(output_dir, f"regrets_{filename}"), 'wb') as f:
-                    np.save(f, r)
-                with open(os.path.join(output_dir, f"actions_{filename}"), 'wb') as f:
-                    np.save(f, actions)
+    # ------------------------------------------------------------------
 
-            prog_bar.update(1)
+    # with Pool(processes=num_processes) as pool:
+    #     it = pool.imap(partial(trial, settings=setting), range(num_trials))
+    #     prog_bar = tqdm_ray.tqdm(total=num_trials, position=0, desc="trials")
+    #     for trial_num, r, actions in it:
+    #         seed = base_seed + trial_num
+    #         for alg_config in algorithms:
+    #             filename = f"{trial_num}_{alg_config.label}_seed{seed}.npy"
+    #             with open(os.path.join(output_dir, f"regrets_{filename}"), 'wb') as f:
+    #                 np.save(f, r)
+    #             with open(os.path.join(output_dir, f"actions_{filename}"), 'wb') as f:
+    #                 np.save(f, actions)
 
-    ray.shutdown()
+    #         prog_bar.update(1)
+
+    # ray.shutdown()
+
+    # ------------------------------------------------------------------
+
+    trial_num = 6
+    _, r, actions =trial(trial_num, settings=setting)
+    seed = base_seed + trial_num
+    for alg_config in algorithms:
+        filename = f"{trial_num}_{alg_config.label}_seed{seed}.npy"
+        with open(os.path.join(output_dir, f"regrets_{filename}"), 'wb') as f:
+            np.save(f, r)
+        with open(os.path.join(output_dir, f"actions_{filename}"), 'wb') as f:
+            np.save(f, actions)
+
+    # ------------------------------------------------------------------    
 
     regrets = np.zeros((num_trials, num_algs, T), dtype=Reward)
     chosen_actions = np.zeros((num_trials, num_algs, T), dtype=Action)
@@ -224,8 +246,6 @@ def main(
                 regrets[trial_num] = np.load(f)
             with open(os.path.join(output_dir, f"actions_{filename}"), 'rb') as f:
                 chosen_actions[trial_num] = np.load(f)
-
-    # i, r, actions = trial(1, settings=setting)
 
     regret_means = np.mean(regrets, axis=0)
     regret_stds = np.std(regrets, axis=0)
