@@ -1,5 +1,5 @@
+from dataclasses import dataclass
 from functools import partial
-from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -16,7 +16,7 @@ from bandits import (
     GaussianBanditEnv,
     LinearBanditEnv,
     PoissonBanditEnv,
-    BernoulliAlignmentBanditEnv
+    BernoulliAlignmentBanditEnv,
 )
 from base_algorithms import (
     BaseAlgorithm,
@@ -30,12 +30,10 @@ from bayesian_state import (
     GammaPoissonState,
     GaussianGaussianState,
     LinearGaussianState,
-    BetaBernoulliAlignmentState
+    BetaBernoulliAlignmentState,
 )
-from ai_alignment_algorithms import(
-    IDSAlignmentAlgorithm
-)
-from common import Reward
+from ai_alignment_algorithms import IDSAlignmentAlgorithm
+from common import Action, Reward
 
 # from icecream import ic
 from setting import Settings, get_settings, init_setting
@@ -59,38 +57,54 @@ bandit_env_configs: dict[
         {"d": 5},
         "linear",
     ),
-    "Beta-Bernoulli Alignment Bandit": (BernoulliAlignmentBanditEnv, BetaBernoulliAlignmentState, {}, "alignment"),
+    "Beta-Bernoulli Alignment Bandit": (
+        BernoulliAlignmentBanditEnv,
+        BetaBernoulliAlignmentState,
+        {},
+        "alignment",
+    ),
 }
 bandit_env_name = "Beta-Bernoulli Alignment Bandit"
 bandit_env_config = bandit_env_configs[bandit_env_name]
 
 
-def get_algorithms(settings: Settings) -> list[tuple[str, type[BaseAlgorithm], dict]]:
+@dataclass
+class AlgorithmConfig:
+    label: str
+    algorithm_type: type[BaseAlgorithm]
+    extra_params: dict
+
+
+def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
     V_IDS_samples = settings.V_IDS_samples
 
     return [
-        # ("random", RandomAlgorithm, {}),
-        # ("greedy", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.0}),
-        # ("e-greedy 0.2", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.2}),
-        # (
+        # AlgorithmConfig("random", RandomAlgorithm, {}),
+        # AlgorithmConfig(
+        #     "greedy", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.0}
+        # ),
+        # AlgorithmConfig(
+        #     "e-greedy 0.2", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.2}
+        # ),
+        # AlgorithmConfig(
         #     "e-greedy decay",
         #     EpsilonGreedyAlgorithm,
         #     {"epsilon_func": lambda t: np.power(t + 1, -1 / 3)},
         # ),
-        # (
+        # AlgorithmConfig(
         #     "explore-commit 200",
         #     EpsilonGreedyAlgorithm,
         #     {"epsilon_func": lambda t: 1.0 if t < 200 else 0.0},
         # ),
-        # ("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
-        # ("TS", ThompsonSamplingAlgorithm, {}),
-        # ("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
-        # (
+        # AlgorithmConfig("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
+        # AlgorithmConfig("TS", ThompsonSamplingAlgorithm, {}),
+        # AlgorithmConfig("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
+        # AlgorithmConfig(
         #     "V-IDS argmin",
         #     VarianceIDSAlgorithm,
         #     {"M": V_IDS_samples, "use_argmin": True},
         # ),
-        ("IDS", IDSAlignmentAlgorithm, {"M": V_IDS_samples})
+        AlgorithmConfig("IDS", IDSAlignmentAlgorithm, {"M": V_IDS_samples}),
     ]
 
 
@@ -104,7 +118,11 @@ def cumulative_regret(
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
 
-def trial(trial_num: int, settings: Settings) -> tuple[NDArray[Reward], NDArray[float64]]:
+def trial(
+    trial_num: int, settings: Settings
+) -> tuple[int, NDArray[Reward], NDArray[float64]]:
+    np.random.seed(settings.base_seed + trial_num)
+
     algorithms = get_algorithms(settings)
     num_algs = len(algorithms)
 
@@ -112,7 +130,7 @@ def trial(trial_num: int, settings: Settings) -> tuple[NDArray[Reward], NDArray[
     T = settings.T
 
     regret_sums = np.zeros((num_algs, T))
-    regret_sq_sums = np.zeros((num_algs, T))
+    chosen_actions = np.zeros((num_algs, T))
 
     kwargs = bandit_env_config[2]
     bandit_env = bandit_env_config[0](
@@ -126,14 +144,16 @@ def trial(trial_num: int, settings: Settings) -> tuple[NDArray[Reward], NDArray[
     # ic("means:")
     # ic(np.array([arm.mean for arm in bandit_env.arms]))
 
-    for i, (_, alg, kwargs) in enumerate(algorithms):
-        alg_instance = alg(bandit_env, bayesian_state, **kwargs)
-        rewards, _ = alg_instance.run(T, trial_num)
+    for i, alg_config in enumerate(algorithms):
+        alg_class = alg_config.algorithm_type
+        kwargs = alg_config.extra_params
+        alg_instance = alg_class(bandit_env, bayesian_state, **kwargs)
+        rewards, actions = alg_instance.run(T, trial_num)
         regrets = cumulative_regret(bandit_env, rewards)
         regret_sums[i] += regrets
-        regret_sq_sums[i] += np.square(regrets)
+        chosen_actions[i] = actions
 
-    return regret_sums, regret_sq_sums
+    return trial_num, regret_sums, actions
 
 
 @app.default()
@@ -143,6 +163,7 @@ def main(
     T: int = 500,
     V_IDS_samples: int = 10000,
     num_arms: int = 10,
+    base_seed: int = 0,
 ) -> None:
     """Bandit simulation.
 
@@ -160,7 +181,7 @@ def main(
         The number of bandits arms
     """
 
-    init_setting(num_trials, num_processes, T, V_IDS_samples, num_arms)
+    init_setting(num_trials, num_processes, T, V_IDS_samples, num_arms, base_seed)
     setting = get_settings()
 
     algorithms = get_algorithms(setting)
@@ -168,22 +189,23 @@ def main(
 
     np.set_printoptions(precision=3)
 
-    regret_sums = np.zeros((num_algs, T))
-    regret_sq_sums = np.zeros((num_algs, T))
+    regrets = np.zeros((num_trials, num_algs, T), dtype=Reward)
+    chosen_actions = np.zeros((num_trials, num_algs, T), dtype=Action)
 
     with Pool(processes=num_processes) as pool:
         it = pool.imap(partial(trial, settings=setting), range(num_trials))
         prog_bar = tqdm_ray.tqdm(total=num_trials, position=0, desc="trials")
-        for r, r_s in it:
-            regret_sums += r
-            regret_sq_sums += r_s
+        for i, r, actions in it:
+            regrets[i] = r
+            chosen_actions[i] = actions
             prog_bar.update(1)
 
     ray.shutdown()
 
-    # r, r_s = trial(1, settings=setting)
-    # regret_sums += r
-    # regret_sq_sums += r_s
+    # i, r, actions = trial(1, settings=setting)
+
+    regret_means = np.mean(regrets, axis=0)
+    regret_stds = np.std(regrets, axis=0)
 
     """
     Section below is for plotting
@@ -191,9 +213,13 @@ def main(
     title = bandit_env_name
     output = bandit_env_config[3]
 
-    plt.figure(figsize=(5,5))
-    for i in range(num_algs):
-        plt.plot(regret_sums[i] / num_trials, label=algorithms[i][0])
+    plt.figure(figsize=(5, 5))
+    for i in range(num_trials):
+        for alg in range(num_algs):
+            plt.plot(regrets[i][alg], color="blue", alpha=0.3)
+
+    for alg in range(num_algs):
+        plt.plot(regret_means[alg], label=algorithms[alg].label, color="blue")
     # plt.xlim(left=0, right=T)
     plt.title(title)
     plt.xlabel("timestep t")
@@ -202,11 +228,20 @@ def main(
     plt.savefig(f"images/{output}.png")
     plt.show()
 
-
     # log log plot
-    plt.figure(figsize=(5,5))
-    for i in range(num_algs):
-        plt.plot(np.arange(10, T), regret_sums[i][10:] / num_trials, label=algorithms[i][0])
+    plt.figure(figsize=(5, 5))
+    for alg in range(num_algs):
+        plt.plot(
+            np.arange(10, T),
+            regret_means[alg][10:],
+            label=algorithms[alg].label,
+        )
+        plt.fill_between(
+            np.arange(10, T),
+            regret_means[alg][10:] + regret_stds[alg][10:],
+            regret_means[alg][10:] - regret_stds[alg][10:],
+            alpha=0.3,
+        )
     # lines for comparison
     x = np.arange(10, T)
     sqrt_x = 30 * np.sqrt(x)
