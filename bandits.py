@@ -16,16 +16,16 @@ from common import Action, Reward, SampleOutput
 T = TypeVar("T", covariant=True)
 
 
-class BanditsArm(Protocol[T]):
+class _BanditsArm(Protocol[T]):
     mean: float64
 
     def sample(self) -> T | SampleOutput: ...
 
 
-P = TypeVar("P", bound=BanditsArm)
+P = TypeVar("P", bound=_BanditsArm)
 
 
-class BernoulliArm:
+class _BernoulliArm:
     def __init__(self, theta: float64):
         self.theta = theta
         self.mean = theta
@@ -34,7 +34,7 @@ class BernoulliArm:
         return np.float64(1.0 if np.random.rand() < self.theta else 0.0)
 
 
-class GaussianArm:
+class _GaussianArm:
     def __init__(self, mu: float64, eta: float64):
         self.mu = mu
         self.eta = eta
@@ -44,7 +44,7 @@ class GaussianArm:
         return np.float64(np.random.normal(self.mu, self.eta))
 
 
-class PoissonArm:
+class _PoissonArm:
     def __init__(self, rate: float64):
         self.rate = rate
         self.mean = rate
@@ -53,7 +53,7 @@ class PoissonArm:
         return int_(np.random.poisson(self.rate))
 
 
-class LinearArm:
+class _LinearArm:
     def __init__(self, feature: NDArray[float64], theta: NDArray[float64]):
         self.feature = feature
         self.mean = np.dot(feature, theta)
@@ -62,7 +62,7 @@ class LinearArm:
         return self.mean + np.random.standard_normal()
 
 
-class BernoulliAlignmentArmPair:
+class _BernoulliAlignmentArmPair:
     def __init__(self, phi: float64, theta: float64):
         self.phi = phi
         self.theta = theta
@@ -112,26 +112,26 @@ class BaseBanditEnv(Generic[P]):
             raise
 
 
-class BernoulliBanditEnv(BaseBanditEnv[BernoulliArm]):
-    def initialize_arms(self) -> list[BernoulliArm]:
+class BernoulliBanditEnv(BaseBanditEnv[_BernoulliArm]):
+    def initialize_arms(self) -> list[_BernoulliArm]:
         thetas: NDArray[float64] = np.random.uniform(0, 1, size=(self.K,))
-        return [BernoulliArm(theta) for theta in thetas]
+        return [_BernoulliArm(theta) for theta in thetas]
 
 
-class GaussianBanditEnv(BaseBanditEnv[GaussianArm]):
-    def initialize_arms(self) -> list[GaussianArm]:
+class GaussianBanditEnv(BaseBanditEnv[_GaussianArm]):
+    def initialize_arms(self) -> list[_GaussianArm]:
         mus: NDArray[float64] = np.random.normal(0, 1, size=(self.K,))
         etas: NDArray[float64] = np.ones(self.K)
-        return [GaussianArm(mu, eta) for mu, eta in zip(mus, etas)]
+        return [_GaussianArm(mu, eta) for mu, eta in zip(mus, etas)]
 
 
-class PoissonBanditEnv(BaseBanditEnv[PoissonArm]):
-    def initialize_arms(self) -> list[PoissonArm]:
+class PoissonBanditEnv(BaseBanditEnv[_PoissonArm]):
+    def initialize_arms(self) -> list[_PoissonArm]:
         rates: NDArray[float64] = np.random.exponential(1.0, size=(self.K,))
-        return [PoissonArm(rate) for rate in rates]
+        return [_PoissonArm(rate) for rate in rates]
 
 
-class LinearBanditEnv(BaseBanditEnv[LinearArm]):
+class LinearBanditEnv(BaseBanditEnv[_LinearArm]):
     def __init__(self, K: int, d: int):
         """
         k: number of arms
@@ -142,7 +142,7 @@ class LinearBanditEnv(BaseBanditEnv[LinearArm]):
         self.phi: NDArray[float64]
         super().__init__(K)
 
-    def initialize_arms(self) -> list[LinearArm]:
+    def initialize_arms(self) -> list[_LinearArm]:
         mean_vec: NDArray[float64] = np.zeros(self.d)
         covariance: NDArray[float64] = 10 * np.eye(self.d)
         feature_radius = 1 / np.sqrt(5)
@@ -151,19 +151,19 @@ class LinearBanditEnv(BaseBanditEnv[LinearArm]):
             -feature_radius, feature_radius, size=(self.K, self.d)
         )
         self.phi = features
-        return [LinearArm(feature, self.theta) for feature in features]
+        return [_LinearArm(feature, self.theta) for feature in features]
 
 
-class BernoulliAlignmentBanditEnv(BaseBanditEnv[BernoulliAlignmentArmPair]):
+class BernoulliAlignmentBanditEnv(BaseBanditEnv[_BernoulliAlignmentArmPair]):
     def __init__(self, K: int):
         if K % 2 != 0:
             raise ValueError("K must be a positive even integer.")
         self.K_env = K // 2
         super().__init__(K)
 
-    def initialize_arms(self) -> list[BernoulliAlignmentArmPair]:
+    def initialize_arms(self) -> list[_BernoulliAlignmentArmPair]:
         params: NDArray[float64] = np.random.uniform(0, 1, size=(self.K_env, 2))
-        return [BernoulliAlignmentArmPair(phi, theta) for phi, theta in params]
+        return [_BernoulliAlignmentArmPair(phi, theta) for phi, theta in params]
 
     def sample(self, action: Action) -> SampleOutput:
         try:
