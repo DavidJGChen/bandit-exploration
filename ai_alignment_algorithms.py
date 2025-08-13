@@ -1,6 +1,7 @@
 import cvxpy as cp
 import numpy as np
 from icecream import ic
+from numpy.random import Generator
 from numpy import float64
 from numpy.typing import NDArray
 from collections.abc import Callable
@@ -22,6 +23,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
         self,
         bandit_env: BaseBanditEnv,
         bayesian_state: BaseBayesianState,
+        rng: Generator,
         M: int,
         use_argmin: bool = False,
     ):
@@ -36,7 +38,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
             )
         self.M = M  # number of samples for MCMC
         self.use_argmin = use_argmin
-        super().__init__(bandit_env, bayesian_state)
+        super().__init__(bandit_env, bayesian_state, rng)
 
     def reset_algorithm_state(self) -> None:
         self.phi_samples, self.theta_samples = self.__calculate_params()
@@ -65,7 +67,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
             prob.solve()
             raw_policy = np.maximum(pi.value, 0.0)
             policy = raw_policy / np.sum(raw_policy)
-            action = np.random.choice(self.K, 1, p=policy)[0]
+            action = self.rng.choice(self.K, 1, p=policy)[0]
 
             info_ratio = prob.value
         except Exception as e:
@@ -107,6 +109,7 @@ class EpsilonThompsonSamplingAlignmentAlgorithm(BaseAlgorithm):
         self,
         bandit_env: BaseBanditEnv,
         bayesian_state: BaseBayesianState,
+        rng: Generator,
         epsilon_func: Callable[[int], float],
     ):
         # Not the best way to do this, but need this hack for now.
@@ -118,19 +121,26 @@ class EpsilonThompsonSamplingAlignmentAlgorithm(BaseAlgorithm):
             raise TypeError(
                 f"Algorithm is only valid with {BetaBernoulliAlignmentState}"
             )
-        super().__init__(bandit_env, bayesian_state)
+        super().__init__(bandit_env, bayesian_state, rng)
+        self.epsilon_func = epsilon_func
 
     def reset_algorithm_state(self) -> None: ...
 
     def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+        action: Action
         if t < self.K:
             action = Action(t)
         else:
-            lambda_hats = self.bayesian_state.get_samples()
-            action = np.argmax(lambda_hats)
+            est_means = self.bayesian_state.get_samples()
+            env_action = np.argmax(est_means)
+            if self.rng.random() < self.epsilon_func(t):
+                # select corresponding human action
+                action = env_action + self.bandit_env.K_env
+            else:
+                action = env_action
 
-        reward = self.bandit_env.sample(action)
+        output: SampleOutput = self.bandit_env.sample(action)
 
-        self.bayesian_state.update_posterior(reward, action)
+        self.bayesian_state.update_posterior_with_outcomes(output, action)
 
-        return reward, action, None
+        return output.reward, action, None

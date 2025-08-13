@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import scipy.linalg
+from numpy.random import Generator
 from numpy import float64, int_
 from numpy.typing import NDArray
 from scipy.stats import beta, gamma, norm
@@ -19,9 +20,10 @@ from common import Action, Reward, SampleOutput
 
 class BaseBayesianState[BanditEnv: BaseBanditEnv](ABC):
     bandit_env: BanditEnv
+    rng: Generator
 
     @abstractmethod
-    def __init__(self, bandit_env: BanditEnv) -> None:
+    def __init__(self, bandit_env: BanditEnv, rng: Generator) -> None:
         raise NotImplementedError
 
     @abstractmethod
@@ -57,8 +59,9 @@ class BetaBernoulliState(BaseBayesianState[BernoulliBanditEnv]):
     betas: NDArray[int_]
     bandit_env: BernoulliBanditEnv
 
-    def __init__(self, bandit_env: BernoulliBanditEnv) -> None:
+    def __init__(self, bandit_env: BernoulliBanditEnv, rng: Generator) -> None:
         self.bandit_env = bandit_env
+        self.rng = rng
 
     def reset_state(self) -> None:
         self.alphas = np.ones(self.bandit_env.K, dtype=int_)
@@ -75,10 +78,14 @@ class BetaBernoulliState(BaseBayesianState[BernoulliBanditEnv]):
         return np.asarray(beta.ppf(quantile, self.alphas, self.betas))
 
     def get_samples(self) -> NDArray[float64]:
-        return np.random.beta(self.alphas, self.betas, size=self.bandit_env.K)
+        return self.rng.beta(
+            self.alphas,
+            self.betas,
+            size=self.bandit_env.K,
+        )
 
     def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
-        return np.random.beta(self.alphas[action], self.betas[action], size=size)
+        return self.rng.beta(self.alphas[action], self.betas[action], size=size)
 
 
 # ------------------------------------------------
@@ -89,8 +96,9 @@ class GammaPoissonState(BaseBayesianState[PoissonBanditEnv]):
     betas: NDArray[int_]
     bandit_env: PoissonBanditEnv
 
-    def __init__(self, bandit_env: PoissonBanditEnv) -> None:
+    def __init__(self, bandit_env: PoissonBanditEnv, rng: Generator) -> None:
         self.bandit_env = bandit_env
+        self.rng = rng
 
     def reset_state(self) -> None:
         self.alphas = np.ones(self.bandit_env.K, dtype=int_)
@@ -104,7 +112,11 @@ class GammaPoissonState(BaseBayesianState[PoissonBanditEnv]):
         return self.alphas / self.betas
 
     def get_quantiles(self, quantile: float64) -> NDArray[Reward]:
-        return np.asarray(gamma.ppf(quantile, self.alphas, scale=1 / self.betas))
+        return np.asarray(
+            gamma.ppf(
+                quantile, self.alphas, scale=1 / self.betas, random_state=self.rng
+            )
+        )
 
     def get_samples(self) -> NDArray[float64]:
         inv_betas = 1 / self.betas
@@ -113,6 +125,7 @@ class GammaPoissonState(BaseBayesianState[PoissonBanditEnv]):
                 self.alphas,  # type: ignore
                 scale=inv_betas,  # type: ignore
                 size=(self.bandit_env.K,),
+                random_state=self.rng,
             )
         )
 
@@ -120,9 +133,7 @@ class GammaPoissonState(BaseBayesianState[PoissonBanditEnv]):
         inv_beta = 1 / self.betas[action]
         return np.asarray(
             gamma.rvs(
-                self.alphas[action],
-                scale=inv_beta,
-                size=(size,),
+                self.alphas[action], scale=inv_beta, size=(size,), random_state=self.rng
             )
         )
 
@@ -135,8 +146,9 @@ class GaussianGaussianState(BaseBayesianState[GaussianBanditEnv]):
     sigmas: NDArray[float64]
     bandit_env: GaussianBanditEnv
 
-    def __init__(self, bandit_env: GaussianBanditEnv) -> None:
+    def __init__(self, bandit_env: GaussianBanditEnv, rng: Generator) -> None:
         self.bandit_env = bandit_env
+        self.rng = rng
 
     def reset_state(self) -> None:
         # hard-code initial to N(0,1)
@@ -166,12 +178,12 @@ class GaussianGaussianState(BaseBayesianState[GaussianBanditEnv]):
 
     def get_samples(self) -> NDArray[float64]:
         return np.asarray(
-            np.random.normal(self.mus, self.sigmas, size=self.bandit_env.K)
+            self.rng.normal(self.mus, self.sigmas, size=self.bandit_env.K)
         )
 
     def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
         return np.asarray(
-            np.random.normal(self.mus[action], self.sigmas[action], size=size)
+            self.rng.normal(self.mus[action], self.sigmas[action], size=size)
         )
 
 
@@ -183,8 +195,9 @@ class LinearGaussianState(BaseBayesianState[LinearBanditEnv]):
     Sigma: NDArray[float64]
     bandit_env: LinearBanditEnv
 
-    def __init__(self, bandit_env: LinearBanditEnv):
+    def __init__(self, bandit_env: LinearBanditEnv, rng: Generator):
         self.bandit_env = bandit_env
+        self.rng = rng
 
     def reset_state(self) -> None:
         self.mu_vec = np.ones(self.bandit_env.d)
@@ -213,7 +226,7 @@ class LinearGaussianState(BaseBayesianState[LinearBanditEnv]):
         return np.asarray(norm.ppf(quantile, loc=means, scale=np.sqrt(variances)))
 
     def get_theta_samples(self, size: int | None = None) -> NDArray[float64]:
-        return np.random.multivariate_normal(self.mu_vec, self.Sigma, size=size)
+        return self.rng.multivariate_normal(self.mu_vec, self.Sigma, size=size)
 
     def get_samples(self) -> NDArray[float64]:
         return self.bandit_env.phi @ self.get_theta_samples()
@@ -236,8 +249,9 @@ class BetaBernoulliAlignmentState(BaseBayesianState[BernoulliAlignmentBanditEnv]
     reward_means: NDArray[Reward]
     bandit_env: BernoulliAlignmentBanditEnv
 
-    def __init__(self, bandit_env: BernoulliAlignmentBanditEnv) -> None:
+    def __init__(self, bandit_env: BernoulliAlignmentBanditEnv, rng: Generator) -> None:
         self.bandit_env = bandit_env
+        self.rng = rng
 
     def reset_state(self) -> None:
         self.alpha_phis = np.ones(self.bandit_env.K_env, dtype=int_)
@@ -289,16 +303,24 @@ class BetaBernoulliAlignmentState(BaseBayesianState[BernoulliAlignmentBanditEnv]
 
     def get_quantiles(self, quantile: float64) -> NDArray[float64]: ...
 
-    def get_samples(self) -> NDArray[float64]: ...
+    def get_samples(self) -> NDArray[float64]:
+        phi_samples = self.rng.beta(
+            self.alpha_phis, self.beta_phis, size=self.bandit_env.K_env
+        )
+        theta_samples = self.rng.beta(
+            self.alpha_thetas, self.beta_thetas, size=self.bandit_env.K_human
+        )
+
+        return phi_samples * theta_samples + (1 - phi_samples) * (1 - theta_samples)
 
     def get_sample_for_action(self, action: Action, size: int) -> NDArray[float64]:
         if self.bandit_env.is_env(action):
-            return np.random.beta(
+            return self.rng.beta(
                 self.alpha_phis[action], self.beta_phis[action], size=size
             )
         else:
             index: Action = action - self.bandit_env.K_env
-            return np.random.beta(
+            return self.rng.beta(
                 self.alpha_thetas[index], self.beta_thetas[index], size=size
             )
 
@@ -332,13 +354,23 @@ class BetaBernoulliAlignmentState(BaseBayesianState[BernoulliAlignmentBanditEnv]
         p_theta_0 = beta_thetas / (alpha_thetas + beta_thetas)
         p_theta_1 = 1 - p_theta_0
 
-        curr_entropy_phi = scipy.stats.beta.entropy(alpha_phis, beta_phis)
-        curr_entropy_theta = scipy.stats.beta.entropy(alpha_thetas, beta_thetas)
+        curr_entropy_phi = beta.entropy(alpha_phis, beta_phis, random_state=self.rng)
+        curr_entropy_theta = beta.entropy(
+            alpha_thetas, beta_thetas, random_state=self.rng
+        )
 
-        next_entropy_phi_0 = scipy.stats.beta.entropy(alpha_phis, beta_phis + 1)
-        next_entropy_phi_1 = scipy.stats.beta.entropy(alpha_phis + 1, beta_phis)
-        next_entropy_theta_0 = scipy.stats.beta.entropy(alpha_thetas, beta_thetas + 1)
-        next_entropy_theta_1 = scipy.stats.beta.entropy(alpha_thetas + 1, beta_thetas)
+        next_entropy_phi_0 = beta.entropy(
+            alpha_phis, beta_phis + 1, random_state=self.rng
+        )
+        next_entropy_phi_1 = beta.entropy(
+            alpha_phis + 1, beta_phis, random_state=self.rng
+        )
+        next_entropy_theta_0 = beta.entropy(
+            alpha_thetas, beta_thetas + 1, random_state=self.rng
+        )
+        next_entropy_theta_1 = beta.entropy(
+            alpha_thetas + 1, beta_thetas, random_state=self.rng
+        )
 
         next_entropy_phi = p_phi_0 * next_entropy_phi_0 + p_phi_1 * next_entropy_phi_1
         next_entropy_theta = (

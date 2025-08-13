@@ -4,6 +4,7 @@ from collections.abc import Callable
 import cvxpy as cp
 import numpy as np
 from numpy import float64
+from numpy.random import Generator
 from numpy.typing import NDArray
 from scipy.optimize import minimize_scalar
 from ray.experimental import tqdm_ray
@@ -24,13 +25,18 @@ class BaseAlgorithm(ABC):
     bandit_env: BaseBanditEnv
     K: int
     bayesian_state: BaseBayesianState
+    rng: Generator
 
     def __init__(
-        self, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState
+        self,
+        bandit_env: BaseBanditEnv,
+        bayesian_state: BaseBayesianState,
+        rng: Generator,
     ) -> None:
         self.bandit_env = bandit_env
         self.bayesian_state = bayesian_state
         self.K = self.bandit_env.K
+        self.rng = rng
 
     def run(
         self, T: int, trial_num: int
@@ -72,14 +78,19 @@ class BaseAlgorithm(ABC):
 
 
 class RandomAlgorithm(BaseAlgorithm):
-    def __init__(self, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState):
-        super().__init__(bandit_env, bayesian_state)
+    def __init__(
+        self,
+        bandit_env: BaseBanditEnv,
+        bayesian_state: BaseBayesianState,
+        rng: Generator,
+    ):
+        super().__init__(bandit_env, bayesian_state, rng)
 
     def reset_algorithm_state(self) -> None:
         pass
 
     def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
-        action = np.uint8(np.random.choice(self.K))
+        action = Action(self.rng.choice(self.K))
         return self.bandit_env.sample(action), action, None
 
 
@@ -91,17 +102,18 @@ class EpsilonGreedyAlgorithm(BaseAlgorithm):
         self,
         bandit_env: BaseBanditEnv,
         bayesian_state: BaseBayesianState,
+        rng: Generator,
         epsilon_func: Callable[[int], float],
     ) -> None:
-        super().__init__(bandit_env, bayesian_state)
+        super().__init__(bandit_env, bayesian_state, rng)
         self.epsilon_func = epsilon_func
 
     def reset_algorithm_state(self) -> None:
         pass
 
     def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
-        if np.random.rand() < self.epsilon_func(t):
-            action = np.uint8(np.random.choice(self.K))
+        if self.rng.random() < self.epsilon_func(t):
+            action = Action(self.rng.choice(self.K))
         else:
             action = np.argmax(self.bayesian_state.get_means())
 
@@ -119,10 +131,14 @@ class BayesUCBAlgorithm(BaseAlgorithm):
     inv_log_factor: float64
 
     def __init__(
-        self, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState, c: int
+        self,
+        bandit_env: BaseBanditEnv,
+        bayesian_state: BaseBayesianState,
+        rng: Generator,
+        c: int,
     ):
         self.c = c
-        super().__init__(bandit_env, bayesian_state)
+        super().__init__(bandit_env, bayesian_state, rng)
 
     def reset_algorithm_state(self) -> None:
         self.inv_log_factor = 1 / np.power(np.log(self.T), self.c)
@@ -146,14 +162,19 @@ class BayesUCBAlgorithm(BaseAlgorithm):
 
 
 class ThompsonSamplingAlgorithm(BaseAlgorithm):
-    def __init__(self, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState):
-        super().__init__(bandit_env, bayesian_state)
+    def __init__(
+        self,
+        bandit_env: BaseBanditEnv,
+        bayesian_state: BaseBayesianState,
+        rng: Generator,
+    ):
+        super().__init__(bandit_env, bayesian_state, rng)
 
     def reset_algorithm_state(self) -> None: ...
 
     def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         if t < self.K:
-            action = np.uint8(t)
+            action = Action(t)
         else:
             lambda_hats = self.bayesian_state.get_samples()
             action = np.argmax(lambda_hats)
@@ -175,10 +196,11 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         self,
         bandit_env: BaseBanditEnv,
         bayesian_state: BaseBayesianState,
+        rng: Generator,
         M: int,
         use_argmin: bool = False,
     ):
-        super().__init__(bandit_env, bayesian_state)
+        super().__init__(bandit_env, bayesian_state, rng)
         self.M = M  # number of samples for MCMC
         self.use_argmin = use_argmin
         # Not the best way to do this, but need this hack for now.
@@ -329,7 +351,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                     min_ratio = info_ratio
                     q_min = q
                     min_pair = (a1, a2)
-        return Action(min_pair[0] if np.random.random() < q_min else min_pair[1])
+        return Action(min_pair[0] if self.rng.random() < q_min else min_pair[1])
 
     def __ids_action_cvxpy(self, delta: NDArray[float64], v) -> Action:
         min_ratio: float | None = None
@@ -364,7 +386,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
                     min_ratio = info_ratio
                     q_min = opt_q
                     min_pair = (a1, a2)
-        return Action(min_pair[0] if np.random.random() < q_min else min_pair[1])
+        return Action(min_pair[0] if self.rng.random() < q_min else min_pair[1])
 
     def __calculate_thetas(self) -> NDArray[float64]:
         return np.array([self.__calculate_theta(action) for action in range(self.K)])
