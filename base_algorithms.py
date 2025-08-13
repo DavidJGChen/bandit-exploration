@@ -39,11 +39,11 @@ class BaseAlgorithm(ABC):
         self.rng = rng
 
     def run(
-        self, T: int, trial_id: int
+        self, T: int, trial_id: int, alg_label: str
     ) -> tuple[NDArray[Reward], NDArray[Action], list[dict | None]]:
         self.__reset_state(T)
 
-        prog_bar = tqdm_ray.tqdm(total=T, desc=f"trial: {trial_id}")
+        prog_bar = tqdm_ray.tqdm(total=T, desc=f"trial: {trial_id}, alg: {alg_label}")
         for t in range(T):
             reward, action, extra = self.__single_step(t)
             self.reward_history[t] = reward

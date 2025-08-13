@@ -96,9 +96,9 @@ class AlgorithmConfig:
 
 def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
     # mcmc_particles = settings.mcmc_particles
-    # T = settings.T
+    T = settings.T
     K = settings.num_arms
-    # epsilon_for_TS = np.sqrt(K) / np.sqrt(T)
+    epsilon_for_TS = np.sqrt(K) / np.sqrt(T)
 
     return [
         # AlgorithmConfig("random", RandomAlgorithm, {}),
@@ -128,9 +128,14 @@ def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
         # ),
         # AlgorithmConfig("IDS", IDSAlignmentAlgorithm, {"M": mcmc_particles}),
         AlgorithmConfig(
-            "TS-ep",
+            "TS-ep1",
             EpsilonThompsonSamplingAlignmentAlgorithm,
             {"epsilon_func": lambda t: min(1.0, np.sqrt(K / (t + 1)))},
+        ),
+        AlgorithmConfig(
+            "TS-ep2",
+            EpsilonThompsonSamplingAlignmentAlgorithm,
+            {"epsilon_func": lambda t: epsilon_for_TS},
         ),
     ]
 
@@ -180,7 +185,7 @@ def trial(
         alg_class = alg_config.algorithm_type
         kwargs = alg_config.extra_params
         alg_instance = alg_class(bandit_env, bayesian_state, rng, **kwargs)
-        rewards, actions, extras = alg_instance.run(T, trial_id)
+        rewards, actions, extras = alg_instance.run(T, trial_id, alg_config.label)
         regrets = cumulative_regret(bandit_env, rewards)
 
         all_regrets[i] = regrets
@@ -311,20 +316,20 @@ def main(
     title = bandit_env_name
     output = bandit_env_config.label
 
-    plt.figure(figsize=(5, 5))
-    for i in range(num_trials):
-        for alg in range(num_algs):
-            plt.plot(regrets[i][alg], color="blue", alpha=0.3)
+    # plt.figure(figsize=(5, 5))
+    # for i in range(num_trials):
+    #     for alg in range(num_algs):
+    #         plt.plot(regrets[i][alg], color="blue", alpha=0.3)
 
-    for alg in range(num_algs):
-        plt.plot(regret_means[alg], label=algorithms[alg].label, color="blue")
-    # plt.xlim(left=0, right=T)
-    plt.title(title)
-    plt.xlabel("timestep t")
-    plt.ylabel("cumulative regret")
-    plt.legend()
-    plt.savefig(f"images/{output}.png")
-    plt.show()
+    # for alg in range(num_algs):
+    #     plt.plot(regret_means[alg], label=algorithms[alg].label, color="blue")
+    # # plt.xlim(left=0, right=T)
+    # plt.title(title)
+    # plt.xlabel("timestep t")
+    # plt.ylabel("cumulative regret")
+    # plt.legend()
+    # plt.savefig(f"images/{output}.png")
+    # plt.show()
 
     # log log plot
     plt.figure(figsize=(5, 5))
@@ -343,9 +348,13 @@ def main(
     # lines for comparison
     x = np.arange(10, T)
     sqrt_x = 30 * np.sqrt(x)
+    sqrt_x_log_x = 20 * np.sqrt(x) * np.log(x)
+    x_3_4 = 10 * x ** (3 / 4)
 
-    plt.plot(x, x, "k--")
+    # plt.plot(x, x, "k--")
     plt.plot(x, sqrt_x, "k--")
+    plt.plot(x, sqrt_x_log_x, "k--")
+    plt.plot(x, x_3_4, "k--")
     # plt.xlim(left=0, right=T)
     # plt.ylim(bottom=0, top=120)
     plt.title(title)

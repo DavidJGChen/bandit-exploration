@@ -5,7 +5,7 @@ from numpy.random import Generator
 from numpy import float64
 from numpy.typing import NDArray
 from collections.abc import Callable
-
+from scipy.optimize import minimize_scalar
 
 from bandits import BaseBanditEnv, BernoulliAlignmentBanditEnv
 from base_algorithms import BaseAlgorithm
@@ -53,18 +53,31 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
 
         R_star = np.mean(np.max(est_rewards_from_samples, axis=1))
 
+        action: Action
+
+        # -------------------------------------------------------------------
+
+        # action = self.__ids_action_scipy(R_star, est_rewards, mutual_infos)
+
+        # -------------------------------------------------------------------
+
         pi = cp.Variable(self.K)
         objective = cp.Minimize(
-            cp.quad_over_lin(R_star - pi @ est_rewards, pi @ mutual_infos)
+            cp.quad_over_lin(
+                (R_star - pi @ est_rewards) * 1000.0, pi @ mutual_infos * 1000000.0
+            )
         )
         constraints = [0 <= pi, pi <= 1, cp.sum(pi) == 1.0]
         prob = cp.Problem(objective, constraints)
-        action: Action
 
         argmin = False
         info_ratio: float64
         try:
-            prob.solve()
+            prob.solve(solver="ECOS")
+
+            if prob.status != "optimal":
+                ic(prob.status, t)
+
             raw_policy = np.maximum(pi.value, 0.0)
             policy = raw_policy / np.sum(raw_policy)
             action = self.rng.choice(self.K, 1, p=policy)[0]
@@ -76,6 +89,8 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
             info_ratios = np.square(R_star - est_rewards) / mutual_infos
             action = np.argmin(info_ratios)
             info_ratio = info_ratios[action]
+
+        # -------------------------------------------------------------------
 
         output: SampleOutput = self.bandit_env.sample(action)
 
@@ -90,6 +105,33 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
             self.theta_samples[index] = self.__calculate_param(action)
 
         return output.reward, action, {"argmin": argmin, "info_ratio": info_ratio}
+        # return output.reward, action, None
+
+    def __ids_action_scipy(
+        self,
+        R_star: float64,
+        est_rewards: NDArray[float64],
+        mutual_infos: NDArray[float64],
+    ) -> Action:
+        min_ratio: float | None = None
+        min_pair: tuple[Action, Action] = (0, 0)
+        q_min: float = 0.0
+        for a1 in range(self.K - 1):
+            for a2 in range(a1 + 1, self.K):
+
+                def obj(q):
+                    return (
+                        R_star - q * est_rewards[a1] + (1 - q) * est_rewards[a2]
+                    ) ** 2 / (q * mutual_infos[a1] + (1 - q) * mutual_infos[a2])
+
+                result = minimize_scalar(obj, bounds=(0, 1), method="bounded")  # type: ignore
+                info_ratio = result.fun
+                q = result.x
+                if min_ratio is None or info_ratio < min_ratio:
+                    min_ratio = info_ratio
+                    q_min = q
+                    min_pair = (a1, a2)
+        return Action(min_pair[0] if self.rng.random() < q_min else min_pair[1])
 
     def __calculate_params(self) -> NDArray[float64]:
         all_params = np.array(

@@ -18,6 +18,7 @@ dependencies = [
     "icecream>=2.0.0,<3.0.0",
     "ipykernel>=6.30.1",
     "polars>=1.32.2",
+    "ecos>=2.0.14",
 ]
 
 [dependency-groups]
