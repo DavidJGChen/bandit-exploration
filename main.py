@@ -14,7 +14,6 @@ from numpy.typing import NDArray
 from ray import ray
 from ray.util.multiprocessing import Pool
 from ray.experimental import tqdm_ray
-from typing import Optional
 
 from bandits import (
     BaseBanditEnv,
@@ -96,11 +95,10 @@ class AlgorithmConfig:
 
 
 def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
-    V_IDS_samples = settings.V_IDS_samples
-    T = settings.T
+    # mcmc_particles = settings.mcmc_particles
+    # T = settings.T
     K = settings.num_arms
-
-    epsilon_for_TS = np.sqrt(K) / np.sqrt(T)
+    # epsilon_for_TS = np.sqrt(K) / np.sqrt(T)
 
     return [
         # AlgorithmConfig("random", RandomAlgorithm, {}),
@@ -122,13 +120,13 @@ def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
         # ),
         # AlgorithmConfig("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
         # AlgorithmConfig("TS", ThompsonSamplingAlgorithm, {}),
-        # AlgorithmConfig("V-IDS", VarianceIDSAlgorithm, {"M": V_IDS_samples}),
+        # AlgorithmConfig("V-IDS", VarianceIDSAlgorithm, {"M": mcmc_particles}),
         # AlgorithmConfig(
         #     "V-IDS argmin",
         #     VarianceIDSAlgorithm,
-        #     {"M": V_IDS_samples, "use_argmin": True},
+        #     {"M": mcmc_particles, "use_argmin": True},
         # ),
-        # AlgorithmConfig("IDS", IDSAlignmentAlgorithm, {"M": V_IDS_samples}),
+        # AlgorithmConfig("IDS", IDSAlignmentAlgorithm, {"M": mcmc_particles}),
         AlgorithmConfig(
             "TS-ep",
             EpsilonThompsonSamplingAlignmentAlgorithm,
@@ -191,7 +189,6 @@ def trial(
 
     extra_df = pl.from_dicts(all_extras[0])
     ic(extra_df)
-
     ic("est means:", bayesian_state.get_means())
 
     return trial_id, all_regrets, all_actions
@@ -206,7 +203,7 @@ def main(
     num_arms: Annotated[int, Parameter(alias="-K")] = 10,
     base_seed: int = 0,
     multiprocessing: bool = True,
-    trial_id_overrides: Optional[list[int]] = None,
+    trial_id_overrides: list[int] | None = None,
 ) -> None:
     """Bandit simulation.
 
@@ -226,7 +223,7 @@ def main(
         The base seed for random number generation.
     multiprocessing: bool
         Whether to enable multiprocessing or not.
-    trial_id_overrides: Optional[list[int]]
+    trial_id_overrides: list[int] | None
         Run a specific set of trial IDs. Overrides num_trials.
         This in combination with base_seed determines the random behavior of all trials.
     """
@@ -234,7 +231,15 @@ def main(
     output_dir = f"output/{today.strftime('%Y%m%d-%H%M')}-{bandit_env_config.label}"
 
     init_setting(
-        num_trials, num_processes, T, mcmc_particles, num_arms, base_seed, output_dir
+        num_trials,
+        num_processes,
+        T,
+        mcmc_particles,
+        num_arms,
+        base_seed,
+        multiprocessing,
+        trial_id_overrides,
+        output_dir,
     )
     setting = get_settings()
 
@@ -275,7 +280,7 @@ def main(
         ray.shutdown()
 
     else:
-        for trial_id in range(num_trials):
+        for trial_id in trial_ids:
             _, regrets, actions = trial(trial_id, settings=setting)
             for alg_config in algorithms:
                 filename = generate_base_filename(base_seed, trial_id, alg_config.label)
@@ -289,14 +294,13 @@ def main(
     regrets = np.zeros((num_trials, num_algs, T), dtype=Reward)
     chosen_actions = np.zeros((num_trials, num_algs, T), dtype=Action)
 
-    for trial_id in range(num_trials):
-        seed = base_seed + trial_id
+    for i, trial_id in enumerate(trial_ids):
         for alg_config in algorithms:
-            filename = f"{trial_id}_{alg_config.label}_seed{seed}.npy"
+            filename = generate_base_filename(base_seed, trial_id, alg_config.label)
             with open(os.path.join(output_dir, f"regrets_{filename}"), "rb") as f:
-                regrets[trial_id] = np.load(f)
+                regrets[i] = np.load(f)
             with open(os.path.join(output_dir, f"actions_{filename}"), "rb") as f:
-                chosen_actions[trial_id] = np.load(f)
+                chosen_actions[i] = np.load(f)
 
     regret_means = np.mean(regrets, axis=0)
     regret_stds = np.std(regrets, axis=0)

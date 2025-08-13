@@ -354,23 +354,13 @@ class BetaBernoulliAlignmentState(BaseBayesianState[BernoulliAlignmentBanditEnv]
         p_theta_0 = beta_thetas / (alpha_thetas + beta_thetas)
         p_theta_1 = 1 - p_theta_0
 
-        curr_entropy_phi = beta.entropy(alpha_phis, beta_phis, random_state=self.rng)
-        curr_entropy_theta = beta.entropy(
-            alpha_thetas, beta_thetas, random_state=self.rng
-        )
+        curr_entropy_phi = beta.entropy(alpha_phis, beta_phis)
+        curr_entropy_theta = beta.entropy(alpha_thetas, beta_thetas)
 
-        next_entropy_phi_0 = beta.entropy(
-            alpha_phis, beta_phis + 1, random_state=self.rng
-        )
-        next_entropy_phi_1 = beta.entropy(
-            alpha_phis + 1, beta_phis, random_state=self.rng
-        )
-        next_entropy_theta_0 = beta.entropy(
-            alpha_thetas, beta_thetas + 1, random_state=self.rng
-        )
-        next_entropy_theta_1 = beta.entropy(
-            alpha_thetas + 1, beta_thetas, random_state=self.rng
-        )
+        next_entropy_phi_0 = beta.entropy(alpha_phis, beta_phis + 1)
+        next_entropy_phi_1 = beta.entropy(alpha_phis + 1, beta_phis)
+        next_entropy_theta_0 = beta.entropy(alpha_thetas, beta_thetas + 1)
+        next_entropy_theta_1 = beta.entropy(alpha_thetas + 1, beta_thetas)
 
         next_entropy_phi = p_phi_0 * next_entropy_phi_0 + p_phi_1 * next_entropy_phi_1
         next_entropy_theta = (

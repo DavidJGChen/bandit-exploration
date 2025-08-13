@@ -39,11 +39,11 @@ class BaseAlgorithm(ABC):
         self.rng = rng
 
     def run(
-        self, T: int, trial_num: int
+        self, T: int, trial_id: int
     ) -> tuple[NDArray[Reward], NDArray[Action], list[dict | None]]:
         self.__reset_state(T)
 
-        prog_bar = tqdm_ray.tqdm(total=T, desc=f"trial: {trial_num}")
+        prog_bar = tqdm_ray.tqdm(total=T, desc=f"trial: {trial_id}")
         for t in range(T):
             reward, action, extra = self.__single_step(t)
             self.reward_history[t] = reward
@@ -145,7 +145,7 @@ class BayesUCBAlgorithm(BaseAlgorithm):
 
     def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         if t < self.K:
-            action = np.uint8(t)
+            action = Action(t)
         else:
             quantile = 1 - (self.inv_log_factor / (t + 1))
             quantiles = self.bayesian_state.get_quantiles(quantile)
@@ -211,7 +211,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
 
     def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         if t < self.K:
-            action = np.uint8(t)
+            action = Action(t)
         else:
             # estimated means of action parameters
             if self.is_linear:
