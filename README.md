@@ -40,16 +40,17 @@ and then you should be able to import as necessary.
 ## TODO Section:
 
 ### General todo:
-- ~~Finish adding typing (mypy or ty)~~
-- ~~Add random seed to make results deterministic~~
-- ~~Clean up images into a proper output file~~
 - Add result saving with pandas/polars
 - Add basic testing
-- ~~Add pre-commit~~
-- Add command line args
+- Add **better** command line args
 - Add config-file
 - Add more doc-strings
 - Better integrate tqdm with multiprocessing. (For low trials, high T).
+- Update pyproject.toml (reference [this guide](https://packaging.python.org/en/latest/guides/writing-pyproject-toml/)).
+- ~~Add pre-commit~~
+- ~~Finish adding typing (mypy or ty)~~
+- ~~Add random seed to make results deterministic~~
+- ~~Clean up images into a proper output file~~
 
 ### Performance todo:
 - Integrate better with Ray
@@ -59,6 +60,6 @@ and then you should be able to import as necessary.
 - Improve IDS action selection
 - Get CVXPY to work?? -- (I'll need to reformulate in terms of quad_over_lin)
 - Implement base IDS (non variance version)
+- Figure out IDS choosing non-optimal actions suddenly (likely due to numerial precision errors?)
 - ~~Add uncertainty intervals to regret plots~~
 - ~~Implement AI alignment bandit setting and algorithms for it.~~
-- Figure out IDS choosing non-optimal actions suddenly (likely due to numerial precision errors?)
