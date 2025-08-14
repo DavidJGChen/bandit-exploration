@@ -46,7 +46,7 @@ from common import Action, Reward
 from icecream import ic
 from setting import Settings, get_settings, init_setting
 
-app = App()
+app = App("bandit-sim")
 
 
 @dataclass
@@ -235,6 +235,13 @@ def main(
     today = datetime.now()
     output_dir = f"output/{today.strftime('%Y%m%d-%H%M')}-{bandit_env_config.label}"
 
+    trial_ids: Iterable[int]
+    if trial_id_overrides is not None and len(trial_id_overrides) > 0:
+        trial_ids = trial_id_overrides
+        num_trials = len(trial_ids)
+    else:
+        trial_ids = range(num_trials)
+
     init_setting(
         num_trials,
         num_processes,
@@ -248,21 +255,23 @@ def main(
     )
     setting = get_settings()
 
-    os.makedirs(output_dir)
-
     algorithms = get_algorithms(setting)
     num_algs = len(algorithms)
 
-    trial_ids: Iterable[int]
-    if trial_id_overrides is not None and len(trial_id_overrides) > 0:
-        trial_ids = trial_id_overrides
-        num_trials = len(trial_ids)
-    else:
-        trial_ids = range(num_trials)
+    memory_footprint_gb = (num_trials * num_algs * T * 128) >> 30
+    GIGABYTE_LIMIT = 12
+    if memory_footprint_gb > GIGABYTE_LIMIT:
+        raise ValueError(
+            f"Total memory footprint of at least {memory_footprint_gb} GB "
+            f"potentially exceeds {GIGABYTE_LIMIT} GB. Please lower either the "
+            "number of trials, algorithms, or the horizon."
+        )
 
     np.set_printoptions(precision=3)
 
     # ------------------------------------------------------------------
+
+    os.makedirs(output_dir)
 
     if multiprocessing:
         with Pool(processes=num_processes) as pool:
