@@ -9,9 +9,9 @@ from numpy.typing import NDArray
 from scipy.optimize import minimize_scalar
 from ray.experimental import tqdm_ray
 
-from bandits import BaseBanditEnv, LinearBanditEnv
-from bayesian_state import BaseBayesianState
-from common import Action, Reward
+from .bandits import BaseBanditEnv, LinearBanditEnv
+from .bayesian_state import BaseBayesianState
+from .common import Action, Reward
 
 DEBUG = False
 

@@ -7,10 +7,10 @@ from numpy.typing import NDArray
 from collections.abc import Callable
 from scipy.optimize import minimize_scalar
 
-from bandits import BaseBanditEnv, BernoulliAlignmentBanditEnv
-from base_algorithms import BaseAlgorithm
-from bayesian_state import BaseBayesianState, BetaBernoulliAlignmentState
-from common import Action, Reward, SampleOutput
+from .bandits import BaseBanditEnv, BernoulliAlignmentBanditEnv
+from .base_algorithms import BaseAlgorithm
+from .bayesian_state import BaseBayesianState, BetaBernoulliAlignmentState
+from .common import Action, Reward, SampleOutput
 
 
 class IDSAlignmentAlgorithm(BaseAlgorithm):

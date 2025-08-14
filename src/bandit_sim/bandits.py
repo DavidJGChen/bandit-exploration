@@ -12,7 +12,7 @@ from numpy import float64, int_
 from numpy.random import Generator
 from numpy.typing import NDArray
 
-from common import Action, Reward, SampleOutput
+from .common import Action, Reward, SampleOutput
 
 T = TypeVar("T", covariant=True)
 

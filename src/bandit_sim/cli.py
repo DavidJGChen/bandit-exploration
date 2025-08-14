@@ -15,7 +15,7 @@ from ray import ray
 from ray.util.multiprocessing import Pool
 from ray.experimental import tqdm_ray
 
-from bandits import (
+from .bandits import (
     BaseBanditEnv,
     BernoulliBanditEnv,
     GaussianBanditEnv,
@@ -23,13 +23,13 @@ from bandits import (
     PoissonBanditEnv,
     BernoulliAlignmentBanditEnv,
 )
-from base_algorithms import (
+from .base_algorithms import (
     BaseAlgorithm,
     # BayesUCBAlgorithm,
     # ThompsonSamplingAlgorithm,
     # VarianceIDSAlgorithm,
 )
-from bayesian_state import (
+from .bayesian_state import (
     BaseBayesianState,
     BetaBernoulliState,
     GammaPoissonState,
@@ -37,14 +37,14 @@ from bayesian_state import (
     LinearGaussianState,
     BetaBernoulliAlignmentState,
 )
-from ai_alignment_algorithms import (
+from .ai_alignment_algorithms import (
     EpsilonThompsonSamplingAlignmentAlgorithm,
     IDSAlignmentAlgorithm,
 )
-from common import Action, Reward
+from .common import Action, Reward
 
 from icecream import ic
-from setting import Settings, get_settings, init_setting
+from bandit_sim.setting import Settings, get_settings, init_setting
 
 app = App("bandit-sim")
 
@@ -200,7 +200,7 @@ def trial(
 
 
 @app.default()
-def main(
+def entry(
     num_trials: Annotated[int, Parameter(alias="-n")] = 100,
     num_processes: int = 10,
     T: int = 500,
@@ -375,6 +375,8 @@ def main(
     plt.savefig(f"images/{output}_log.png")
     plt.show()
 
+def main():
+    app()
 
 if __name__ == "__main__":
-    app()
+    main()

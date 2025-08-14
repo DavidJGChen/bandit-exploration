@@ -7,7 +7,7 @@ from numpy import float64, int_
 from numpy.typing import NDArray
 from scipy.stats import beta, gamma, norm
 
-from bandits import (
+from .bandits import (
     BaseBanditEnv,
     BernoulliBanditEnv,
     GaussianBanditEnv,
@@ -15,7 +15,7 @@ from bandits import (
     PoissonBanditEnv,
     BernoulliAlignmentBanditEnv,
 )
-from common import Action, Reward, SampleOutput
+from .common import Action, Reward, SampleOutput
 
 
 class BaseBayesianState[BanditEnv: BaseBanditEnv](ABC):
