@@ -1,10 +1,11 @@
+from collections.abc import Callable
+
 import cvxpy as cp
 import numpy as np
 from icecream import ic
-from numpy.random import Generator
 from numpy import float64
+from numpy.random import Generator
 from numpy.typing import NDArray
-from collections.abc import Callable
 from scipy.optimize import minimize_scalar
 
 from .bandits import BaseBanditEnv, BernoulliAlignmentBanditEnv

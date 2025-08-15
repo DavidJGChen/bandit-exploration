@@ -2,18 +2,18 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import scipy.linalg
-from numpy.random import Generator
 from numpy import float64, int_
+from numpy.random import Generator
 from numpy.typing import NDArray
 from scipy.stats import beta, gamma, norm
 
 from .bandits import (
     BaseBanditEnv,
+    BernoulliAlignmentBanditEnv,
     BernoulliBanditEnv,
     GaussianBanditEnv,
     LinearBanditEnv,
     PoissonBanditEnv,
-    BernoulliAlignmentBanditEnv,
 )
 from .common import Action, Reward, SampleOutput
 

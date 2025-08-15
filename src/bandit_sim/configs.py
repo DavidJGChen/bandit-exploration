@@ -1,13 +1,18 @@
-import numpy as np
 from dataclasses import dataclass
 
+import numpy as np
+
+from .ai_alignment_algorithms import (
+    EpsilonThompsonSamplingAlignmentAlgorithm,
+    IDSAlignmentAlgorithm,
+)
 from .bandits import (
     BaseBanditEnv,
+    BernoulliAlignmentBanditEnv,
     BernoulliBanditEnv,
     GaussianBanditEnv,
     LinearBanditEnv,
     PoissonBanditEnv,
-    BernoulliAlignmentBanditEnv,
 )
 from .base_algorithms import (
     BaseAlgorithm,
@@ -17,17 +22,14 @@ from .base_algorithms import (
 )
 from .bayesian_state import (
     BaseBayesianState,
+    BetaBernoulliAlignmentState,
     BetaBernoulliState,
     GammaPoissonState,
     GaussianGaussianState,
     LinearGaussianState,
-    BetaBernoulliAlignmentState,
-)
-from .ai_alignment_algorithms import (
-    EpsilonThompsonSamplingAlignmentAlgorithm,
-    IDSAlignmentAlgorithm,
 )
 from .setting import Settings
+
 
 @dataclass
 class BanditEnvConfig:

@@ -1,29 +1,28 @@
+import os
+from collections.abc import Iterable
 from dataclasses import asdict
+from datetime import datetime
 from functools import partial
+from typing import Annotated
 
 import numpy as np
-import os
 import polars as pl
 import yaml
-from collections.abc import Iterable
 from cyclopts import App, Parameter
-from typing import Annotated
-from datetime import datetime
 from icecream import ic
 from numpy import float64
 from numpy.typing import NDArray
 from ray import ray
-from ray.util.multiprocessing import Pool
 from ray.experimental import tqdm_ray
+from ray.util.multiprocessing import Pool
 
-from .bandits import (
-    BaseBanditEnv
-)
-from .configs import get_algorithms, bandit_env_config, bandit_env_name
+from .bandits import BaseBanditEnv
 from .common import Reward
+from .configs import bandit_env_config, bandit_env_name, get_algorithms
 from .setting import Settings, get_settings, init_setting
 
 app = App("bandit-sim")
+
 
 # TODO: move this function somewhere else
 def cumulative_regret(

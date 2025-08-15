@@ -6,8 +6,8 @@ import numpy as np
 from numpy import float64
 from numpy.random import Generator
 from numpy.typing import NDArray
-from scipy.optimize import minimize_scalar
 from ray.experimental import tqdm_ray
+from scipy.optimize import minimize_scalar
 
 from .bandits import BaseBanditEnv, LinearBanditEnv
 from .bayesian_state import BaseBayesianState

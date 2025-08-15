@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 from numpy import float64, uint8
 
 Reward = float64
