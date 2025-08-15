@@ -54,38 +54,41 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
         R_star = np.mean(np.max(est_rewards_from_samples, axis=1))
 
         action: Action
-
-        # -------------------------------------------------------------------
-
-        # action = self.__ids_action_scipy(R_star, est_rewards, mutual_infos)
-
-        # -------------------------------------------------------------------
-
-        pi = cp.Variable(self.K)
-        objective = cp.Minimize(
-            cp.quad_over_lin(
-                (R_star - pi @ est_rewards) * 1000.0, pi @ mutual_infos * 1000000.0
-            )
-        )
-        constraints = [0 <= pi, pi <= 1, cp.sum(pi) == 1.0]
-        prob = cp.Problem(objective, constraints)
-
-        argmin = False
         info_ratio: float64
-        try:
-            prob.solve(solver="ECOS")
 
-            if prob.status != "optimal":
-                ic(prob.status, t)
+        # -------------------------------------------------------------------
 
-            raw_policy = np.maximum(pi.value, 0.0)
-            policy = raw_policy / np.sum(raw_policy)
-            action = self.rng.choice(self.K, 1, p=policy)[0]
+        argmin_fallback = False
+        if not self.use_argmin:
+            pi = cp.Variable(self.K)
+            objective = cp.Minimize(
+                cp.quad_over_lin(
+                    (R_star - pi @ est_rewards) * 1000.0, pi @ mutual_infos * 1000000.0
+                )
+            )
+            constraints = [0 <= pi, pi <= 1, cp.sum(pi) == 1.0]
+            prob = cp.Problem(objective, constraints)
 
-            info_ratio = prob.value
-        except Exception as e:
-            argmin = True
-            ic(e)
+            try:
+                prob.solve(solver="CLARABEL")
+
+                if prob.status != "optimal":
+                    ic(prob.status, t)
+
+                raw_policy = np.maximum(pi.value, 0.0)
+                policy = raw_policy / np.sum(raw_policy)
+                action = self.rng.choice(self.K, 1, p=policy)[0]
+
+                info_ratio = prob.value
+            except Exception as e:
+                argmin_fallback = True
+                ic(e)
+        else:
+            argmin_fallback = True
+
+        # -------------------------------------------------------------------
+
+        if argmin_fallback:
             info_ratios = np.square(R_star - est_rewards) / mutual_infos
             action = np.argmin(info_ratios)
             info_ratio = info_ratios[action]
@@ -104,34 +107,11 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
             index = action - self.bandit_env.K_env
             self.theta_samples[index] = self.__calculate_param(action)
 
-        return output.reward, action, {"argmin": argmin, "info_ratio": info_ratio}
-        # return output.reward, action, None
-
-    def __ids_action_scipy(
-        self,
-        R_star: float64,
-        est_rewards: NDArray[float64],
-        mutual_infos: NDArray[float64],
-    ) -> Action:
-        min_ratio: float | None = None
-        min_pair: tuple[Action, Action] = (0, 0)
-        q_min: float = 0.0
-        for a1 in range(self.K - 1):
-            for a2 in range(a1 + 1, self.K):
-
-                def obj(q):
-                    return (
-                        R_star - q * est_rewards[a1] + (1 - q) * est_rewards[a2]
-                    ) ** 2 / (q * mutual_infos[a1] + (1 - q) * mutual_infos[a2])
-
-                result = minimize_scalar(obj, bounds=(0, 1), method="bounded")  # type: ignore
-                info_ratio = result.fun
-                q = result.x
-                if min_ratio is None or info_ratio < min_ratio:
-                    min_ratio = info_ratio
-                    q_min = q
-                    min_pair = (a1, a2)
-        return Action(min_pair[0] if self.rng.random() < q_min else min_pair[1])
+        return (
+            output.reward,
+            action,
+            {"argmin": argmin_fallback, "info_ratio": info_ratio},
+        )
 
     def __calculate_params(self) -> NDArray[float64]:
         all_params = np.array(

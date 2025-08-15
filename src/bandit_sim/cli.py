@@ -1,14 +1,15 @@
-from dataclasses import dataclass
+from dataclasses import asdict
 from functools import partial
 
-import matplotlib.pyplot as plt
 import numpy as np
 import os
 import polars as pl
+import yaml
 from collections.abc import Iterable
 from cyclopts import App, Parameter
 from typing import Annotated
 from datetime import datetime
+from icecream import ic
 from numpy import float64
 from numpy.typing import NDArray
 from ray import ray
@@ -16,129 +17,13 @@ from ray.util.multiprocessing import Pool
 from ray.experimental import tqdm_ray
 
 from .bandits import (
-    BaseBanditEnv,
-    BernoulliBanditEnv,
-    GaussianBanditEnv,
-    LinearBanditEnv,
-    PoissonBanditEnv,
-    BernoulliAlignmentBanditEnv,
+    BaseBanditEnv
 )
-from .base_algorithms import (
-    BaseAlgorithm,
-    # BayesUCBAlgorithm,
-    # ThompsonSamplingAlgorithm,
-    # VarianceIDSAlgorithm,
-)
-from .bayesian_state import (
-    BaseBayesianState,
-    BetaBernoulliState,
-    GammaPoissonState,
-    GaussianGaussianState,
-    LinearGaussianState,
-    BetaBernoulliAlignmentState,
-)
-from .ai_alignment_algorithms import (
-    EpsilonThompsonSamplingAlignmentAlgorithm,
-    IDSAlignmentAlgorithm,
-)
-from .common import Action, Reward
-
-from icecream import ic
-from bandit_sim.setting import Settings, get_settings, init_setting
+from .configs import get_algorithms, bandit_env_config, bandit_env_name
+from .common import Reward
+from .setting import Settings, get_settings, init_setting
 
 app = App("bandit-sim")
-
-
-@dataclass
-class BanditEnvConfig:
-    bandit_env: type[BaseBanditEnv]
-    bayesian_state: type[BaseBayesianState]
-    extra_args: dict
-    label: str
-
-
-bandit_env_configs: dict[str, BanditEnvConfig] = {
-    "Beta-Bernoulli Bandit": BanditEnvConfig(
-        BernoulliBanditEnv, BetaBernoulliState, {}, "bernoulli"
-    ),
-    "Gaussian-Gaussian Bandit": BanditEnvConfig(
-        GaussianBanditEnv,
-        GaussianGaussianState,
-        {},
-        "gaussian",
-    ),
-    "Gamma-Poisson Bandit": BanditEnvConfig(
-        PoissonBanditEnv, GammaPoissonState, {}, "poisson"
-    ),
-    "Linear-Gaussian Bandit": BanditEnvConfig(
-        LinearBanditEnv,
-        LinearGaussianState,
-        {"d": 5},
-        "linear",
-    ),
-    "Beta-Bernoulli Alignment Bandit": BanditEnvConfig(
-        BernoulliAlignmentBanditEnv,
-        BetaBernoulliAlignmentState,
-        {},
-        "alignment",
-    ),
-}
-bandit_env_name = "Beta-Bernoulli Alignment Bandit"
-bandit_env_config: BanditEnvConfig = bandit_env_configs[bandit_env_name]
-
-
-@dataclass
-class AlgorithmConfig:
-    label: str
-    algorithm_type: type[BaseAlgorithm]
-    extra_params: dict
-
-
-def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
-    # mcmc_particles = settings.mcmc_particles
-    T = settings.T
-    K = settings.num_arms
-    epsilon_for_TS = np.sqrt(K) / np.sqrt(T)
-
-    return [
-        # AlgorithmConfig("random", RandomAlgorithm, {}),
-        # AlgorithmConfig(
-        #     "greedy", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.0}
-        # ),
-        # AlgorithmConfig(
-        #     "e-greedy 0.2", EpsilonGreedyAlgorithm, {"epsilon_func": lambda _: 0.2}
-        # ),
-        # AlgorithmConfig(
-        #     "e-greedy decay",
-        #     EpsilonGreedyAlgorithm,
-        #     {"epsilon_func": lambda t: np.power(t + 1, -1 / 3)},
-        # ),
-        # AlgorithmConfig(
-        #     "explore-commit 200",
-        #     EpsilonGreedyAlgorithm,
-        #     {"epsilon_func": lambda t: 1.0 if t < 200 else 0.0},
-        # ),
-        # AlgorithmConfig("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
-        # AlgorithmConfig("TS", ThompsonSamplingAlgorithm, {}),
-        # AlgorithmConfig("V-IDS", VarianceIDSAlgorithm, {"M": mcmc_particles}),
-        # AlgorithmConfig(
-        #     "V-IDS argmin",
-        #     VarianceIDSAlgorithm,
-        #     {"M": mcmc_particles, "use_argmin": True},
-        # ),
-        # AlgorithmConfig("IDS", IDSAlignmentAlgorithm, {"M": mcmc_particles}),
-        AlgorithmConfig(
-            "TS-ep1",
-            EpsilonThompsonSamplingAlignmentAlgorithm,
-            {"epsilon_func": lambda t: min(1.0, np.sqrt(K / (t + 1)))},
-        ),
-        AlgorithmConfig(
-            "TS-ep2",
-            EpsilonThompsonSamplingAlignmentAlgorithm,
-            {"epsilon_func": lambda t: epsilon_for_TS},
-        ),
-    ]
-
 
 # TODO: move this function somewhere else
 def cumulative_regret(
@@ -203,7 +88,7 @@ def trial(
 def entry(
     num_trials: Annotated[int, Parameter(alias="-n")] = 100,
     num_processes: int = 10,
-    T: int = 500,
+    T: Annotated[int, Parameter(alias="-T")] = 500,
     mcmc_particles: int = 10000,
     num_arms: Annotated[int, Parameter(alias="-K")] = 10,
     base_seed: int = 0,
@@ -232,6 +117,8 @@ def entry(
         Run a specific set of trial IDs. Overrides num_trials.
         This in combination with base_seed determines the random behavior of all trials.
     """
+    ic.disable()
+
     today = datetime.now()
     output_dir = f"output/{today.strftime('%Y%m%d-%H%M')}-{bandit_env_config.label}"
 
@@ -270,8 +157,20 @@ def entry(
     np.set_printoptions(precision=3)
 
     # ------------------------------------------------------------------
+    # Output config.
 
-    os.makedirs(output_dir)
+    os.makedirs(output_dir, exist_ok=True)
+
+    with open(os.path.join(output_dir, "simulation_config.yaml"), "w") as config_file:
+        saved_config = {
+            "bandit_env_name": bandit_env_name,
+            "bandit_env_config": asdict(bandit_env_config),
+            "algorithm_configs": [asdict(alg_config) for alg_config in algorithms],
+            "settings": asdict(setting),
+        }
+        yaml.dump(saved_config, config_file)
+
+    # ------------------------------------------------------------------
 
     if multiprocessing:
         with Pool(processes=num_processes) as pool:
@@ -303,80 +202,10 @@ def entry(
                 with open(os.path.join(output_dir, f"actions_{filename}"), "wb") as f:
                     np.save(f, actions)
 
-    # ------------------------------------------------------------------
-
-    regrets = np.zeros((num_trials, num_algs, T), dtype=Reward)
-    chosen_actions = np.zeros((num_trials, num_algs, T), dtype=Action)
-
-    for i, trial_id in enumerate(trial_ids):
-        for alg_config in algorithms:
-            filename = generate_base_filename(base_seed, trial_id, alg_config.label)
-            with open(os.path.join(output_dir, f"regrets_{filename}"), "rb") as f:
-                regrets[i] = np.load(f)
-            with open(os.path.join(output_dir, f"actions_{filename}"), "rb") as f:
-                chosen_actions[i] = np.load(f)
-
-    regret_means = np.mean(regrets, axis=0)
-    regret_stds = np.std(regrets, axis=0)
-
-    """
-    Section below is for plotting
-    """
-    title = bandit_env_name
-    output = bandit_env_config.label
-
-    # plt.figure(figsize=(5, 5))
-    # for i in range(num_trials):
-    #     for alg in range(num_algs):
-    #         plt.plot(regrets[i][alg], color="blue", alpha=0.3)
-
-    # for alg in range(num_algs):
-    #     plt.plot(regret_means[alg], label=algorithms[alg].label, color="blue")
-    # # plt.xlim(left=0, right=T)
-    # plt.title(title)
-    # plt.xlabel("timestep t")
-    # plt.ylabel("cumulative regret")
-    # plt.legend()
-    # plt.savefig(f"images/{output}.png")
-    # plt.show()
-
-    # log log plot
-    plt.figure(figsize=(5, 5))
-    for alg in range(num_algs):
-        plt.plot(
-            np.arange(10, T),
-            regret_means[alg][10:],
-            label=algorithms[alg].label,
-        )
-        plt.fill_between(
-            np.arange(10, T),
-            regret_means[alg][10:] + regret_stds[alg][10:],
-            regret_means[alg][10:] - regret_stds[alg][10:],
-            alpha=0.3,
-        )
-    # lines for comparison
-    x = np.arange(10, T)
-    sqrt_x = 30 * np.sqrt(x)
-    sqrt_x_log_x = 20 * np.sqrt(x) * np.log(x)
-    x_3_4 = 10 * x ** (3 / 4)
-
-    # plt.plot(x, x, "k--")
-    plt.plot(x, sqrt_x, "k--")
-    plt.plot(x, sqrt_x_log_x, "k--")
-    plt.plot(x, x_3_4, "k--")
-    # plt.xlim(left=0, right=T)
-    # plt.ylim(bottom=0, top=120)
-    plt.title(title)
-    plt.xlabel("iteration (log)")
-    plt.ylabel("cumulative regret (log)")
-    plt.yscale("log")
-    plt.xscale("log")
-    plt.legend()
-    plt.savefig(f"images/{output}_log.png")
-    plt.show()
 
 def main():
     app()
+
 
 if __name__ == "__main__":
     main()
