@@ -9,6 +9,7 @@ import numpy as np
 import polars as pl
 import yaml
 from cyclopts import App, Parameter
+from cyclopts.types import PositiveInt, UInt8, NonNegativeInt
 from icecream import ic
 from numpy import float64
 from numpy.typing import NDArray
@@ -85,34 +86,34 @@ def trial(
 
 @app.default()
 def entry(
-    num_trials: Annotated[int, Parameter(alias="-n")] = 100,
-    num_processes: int = 10,
-    T: Annotated[int, Parameter(alias="-T")] = 500,
-    mcmc_particles: int = 10000,
-    num_arms: Annotated[int, Parameter(alias="-K")] = 10,
+    num_trials: Annotated[PositiveInt, Parameter(alias="-n")] = 100,
+    num_processes: UInt8 = 10,
+    T: Annotated[PositiveInt, Parameter(alias="-T")] = 500,
+    mcmc_particles: PositiveInt = 10000,
+    num_arms: Annotated[UInt8, Parameter(alias="-K")] = 10,
     base_seed: int = 0,
     multiprocessing: bool = True,
-    trial_id_overrides: list[int] | None = None,
+    trial_id_overrides: list[NonNegativeInt] | None = None,
 ) -> None:
     """Bandit simulation.
 
     Parameters
     ----------
-    num_trials: int
+    num_trials: PositiveInt
         The number of trials.
-    num_processes: int
+    num_processes: UInt8
         The number of parallel simulation processes.
-    T: int
+    T: PositiveInt
         The horizon for each trial.
-    mcmc_particles: int
+    mcmc_particles: PositiveInt
         The number of particles to use in MCMC for IDS.
-    num_arms: int
+    num_arms: UInt8
         The number of bandits arms
     base_seed: int
         The base seed for random number generation.
     multiprocessing: bool
         Whether to enable multiprocessing or not.
-    trial_id_overrides: list[int] | None
+    trial_id_overrides: list[NonNegativeInt] | None
         Run a specific set of trial IDs. Overrides num_trials.
         This in combination with base_seed determines the random behavior of all trials.
     """
