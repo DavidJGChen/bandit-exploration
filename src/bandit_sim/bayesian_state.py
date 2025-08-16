@@ -279,7 +279,7 @@ class BetaBernoulliAlignmentState(BaseBayesianState[BernoulliAlignmentBanditEnv]
             self.alpha_phis[index] += output.outcome
             self.beta_phis[index] += 1 - output.outcome
         else:
-            index: Action = action - self.bandit_env.K_env
+            index = action - self.bandit_env.K_env
             self.alpha_thetas[index] += output.outcome
             self.beta_thetas[index] += 1 - output.outcome
 
