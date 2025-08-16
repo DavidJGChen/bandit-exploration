@@ -5,3 +5,4 @@ mypy
 ruff
 pytest
 viztracer
+types-PyYAML

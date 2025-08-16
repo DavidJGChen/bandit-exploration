@@ -7,7 +7,7 @@ from typing import Annotated
 
 import numpy as np
 import polars as pl
-import yaml
+import yaml  # type: ignore
 from cyclopts import App, Parameter
 from cyclopts.types import PositiveInt, UInt8, NonNegativeInt
 from icecream import ic
