@@ -1,5 +1,6 @@
-import numpy as np
 from typing import Callable, Protocol, TypeAlias
+
+import numpy as np
 
 from .bandits import BaseBanditEnv
 from .bayesian_state import BaseBayesianState
@@ -8,12 +9,14 @@ EpsilonFunction: TypeAlias = Callable[[int], float]
 
 
 class EpsilonFactory(Protocol):
+    @staticmethod
     def func_creator(
         T: int, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState
     ) -> EpsilonFunction: ...
 
 
 class Greedy(EpsilonFactory):
+    @staticmethod
     def func_creator(
         T: int, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState
     ) -> EpsilonFunction:
@@ -21,6 +24,7 @@ class Greedy(EpsilonFactory):
 
 
 class Constant(EpsilonFactory):
+    @staticmethod
     def func_creator(
         T: int, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState
     ) -> EpsilonFunction:
@@ -28,6 +32,7 @@ class Constant(EpsilonFactory):
 
 
 class ExpDecay(EpsilonFactory):
+    @staticmethod
     def func_creator(
         T: int, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState
     ) -> EpsilonFunction:
@@ -35,6 +40,7 @@ class ExpDecay(EpsilonFactory):
 
 
 class SqrtDecay(EpsilonFactory):
+    @staticmethod
     def func_creator(
         T: int, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState
     ) -> EpsilonFunction:
@@ -43,6 +49,7 @@ class SqrtDecay(EpsilonFactory):
 
 
 class HorizonSqrtDecay(EpsilonFactory):
+    @staticmethod
     def func_creator(
         T: int, bandit_env: BaseBanditEnv, bayesian_state: BaseBayesianState
     ) -> EpsilonFunction:

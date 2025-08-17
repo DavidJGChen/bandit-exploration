@@ -12,7 +12,7 @@ from scipy.optimize import minimize_scalar
 from .bandits import BaseBanditEnv, LinearBanditEnv
 from .bayesian_state import BaseBayesianState
 from .common import Action, Reward
-from .epsilon_functions import EpsilonFunction, EpsilonFactory
+from .epsilon_functions import EpsilonFactory, EpsilonFunction
 
 DEBUG = False
 

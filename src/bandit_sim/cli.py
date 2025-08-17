@@ -9,14 +9,14 @@ import numpy as np
 import polars as pl
 import yaml  # type: ignore
 from cyclopts import App, Parameter
-from cyclopts.types import PositiveInt, UInt8, NonNegativeInt
+from cyclopts.types import NonNegativeInt, PositiveInt, UInt8
 from icecream import ic
 from numpy import float64
 from numpy.typing import NDArray
+from pydantic_yaml import to_yaml_str
 from ray import ray
 from ray.experimental import tqdm_ray
 from ray.util.multiprocessing import Pool
-from pydantic_yaml import to_yaml_str
 
 from .bandits import BaseBanditEnv
 from .common import Reward

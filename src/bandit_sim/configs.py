@@ -1,7 +1,7 @@
-from pydantic import BaseModel, PlainSerializer
 from typing import Annotated, Any, TypeVar
 
 import numpy as np
+from pydantic import BaseModel, PlainSerializer
 
 from .ai_alignment_algorithms import (
     EpsilonThompsonSamplingAlignmentAlgorithm,
