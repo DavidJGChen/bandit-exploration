@@ -15,10 +15,6 @@ dependencies = [
     "ray>=2.48.0",
     "tqdm>=4.67.1",
     "cyclopts>=3.0.0,<4.0.0",
-    "loguru>=0.7.0,<0.8.0",
-    "pyqt5<5.16",
-    "pyqtwebengine<5.16",
-    "loguru<1.0",
     "icecream>=2.0.0,<3.0.0",
     "ipykernel>=6.30.1",
     "polars>=1.32.2",
@@ -35,7 +31,8 @@ dev = [
     "scipy-stubs>=1.16.1.0",
     "types-tqdm>=4.67.0.20250809",
     "viztracer>=1.0.4",
-    "types-PyYAML>=6.0"
+    "types-PyYAML>=6.0",
+    "ty>=0.0.1a18",
 ]
 
 [project.scripts]
