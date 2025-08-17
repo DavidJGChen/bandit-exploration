@@ -4,8 +4,10 @@ repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.7 # Use the latest stable version of Ruff
     hooks:
-      - id: ruff
+      - id: ruff-check
         args: [--fix, --exit-non-zero-on-fix, --select, I] # Optional: automatically fix issues and exit with non-zero on fix
+      - id: ruff-check
+        args: [--fix]
       - id: ruff-format
 
   # Mypy for type checking

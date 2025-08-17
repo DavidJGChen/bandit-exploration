@@ -13,7 +13,6 @@ from cyclopts.types import NonNegativeInt, PositiveInt, UInt8
 from icecream import ic
 from numpy import float64
 from numpy.typing import NDArray
-from pydantic_yaml import to_yaml_str
 from ray import ray
 from ray.experimental import tqdm_ray
 from ray.util.multiprocessing import Pool
