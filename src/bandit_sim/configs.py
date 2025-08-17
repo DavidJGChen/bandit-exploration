@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from pydantic import BaseModel, PlainSerializer
+from typing import Annotated, Any, TypeVar
 
 import numpy as np
 
@@ -28,59 +29,70 @@ from .bayesian_state import (
     GaussianGaussianState,
     LinearGaussianState,
 )
+from .epsilon_functions import SqrtDecay
 from .setting import Settings
 
+T = TypeVar("T")
 
-@dataclass
-class BanditEnvConfig:
-    bandit_env: type[BaseBanditEnv]
-    bayesian_state: type[BaseBayesianState]
+
+def serializer(class_type: type[Any]) -> str:
+    return class_type.__name__
+
+
+SerializableType = Annotated[type[T], PlainSerializer(serializer)]
+
+
+class BanditEnvConfig(BaseModel):
+    bandit_env: SerializableType[BaseBanditEnv]
+    bayesian_state: SerializableType[BaseBayesianState]
     extra_args: dict
     label: str
 
 
 _bandit_env_configs: dict[str, BanditEnvConfig] = {
     "Beta-Bernoulli Bandit": BanditEnvConfig(
-        BernoulliBanditEnv, BetaBernoulliState, {}, "bernoulli"
+        bandit_env=BernoulliBanditEnv,
+        bayesian_state=BetaBernoulliState,
+        extra_args={},
+        label="bernoulli",
     ),
     "Gaussian-Gaussian Bandit": BanditEnvConfig(
-        GaussianBanditEnv,
-        GaussianGaussianState,
-        {},
-        "gaussian",
+        bandit_env=GaussianBanditEnv,
+        bayesian_state=GaussianGaussianState,
+        extra_args={},
+        label="gaussian",
     ),
     "Gamma-Poisson Bandit": BanditEnvConfig(
-        PoissonBanditEnv, GammaPoissonState, {}, "poisson"
+        bandit_env=PoissonBanditEnv,
+        bayesian_state=GammaPoissonState,
+        extra_args={},
+        label="poisson",
     ),
     "Linear-Gaussian Bandit": BanditEnvConfig(
-        LinearBanditEnv,
-        LinearGaussianState,
-        {"d": 5},
-        "linear",
+        bandit_env=LinearBanditEnv,
+        bayesian_state=LinearGaussianState,
+        extra_args={"d": 5},
+        label="linear",
     ),
     "Beta-Bernoulli Alignment Bandit": BanditEnvConfig(
-        BernoulliAlignmentBanditEnv,
-        BetaBernoulliAlignmentState,
-        {},
-        "alignment",
+        bandit_env=BernoulliAlignmentBanditEnv,
+        bayesian_state=BetaBernoulliAlignmentState,
+        extra_args={},
+        label="alignment",
     ),
 }
 bandit_env_name = "Beta-Bernoulli Alignment Bandit"
 bandit_env_config: BanditEnvConfig = _bandit_env_configs[bandit_env_name]
 
 
-@dataclass
-class AlgorithmConfig:
+class AlgorithmConfig(BaseModel):
     label: str
-    algorithm_type: type[BaseAlgorithm]
-    extra_params: dict
+    algorithm_type: SerializableType[BaseAlgorithm]
+    extra_params: dict[str, SerializableType | Any]
 
 
 def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
     mcmc_particles = settings.mcmc_particles
-    # T = settings.T
-    K = settings.num_arms
-    # epsilon_for_TS = np.sqrt(K) / np.sqrt(T)
 
     return [
         # AlgorithmConfig("random", RandomAlgorithm, {}),
@@ -109,12 +121,14 @@ def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
         #     {"M": mcmc_particles, "use_argmin": True},
         # ),
         AlgorithmConfig(
-            "IDS", IDSAlignmentAlgorithm, {"M": mcmc_particles, "use_argmin": True}
+            label="IDS",
+            algorithm_type=IDSAlignmentAlgorithm,
+            extra_params={"M": mcmc_particles, "use_argmin": True},
         ),
         AlgorithmConfig(
-            "TS-ep1",
-            EpsilonThompsonSamplingAlignmentAlgorithm,
-            {"epsilon_func": lambda t: min(1.0, np.sqrt(K / (t + 1)))},
+            label="TS-ep1",
+            algorithm_type=EpsilonThompsonSamplingAlignmentAlgorithm,
+            extra_params={"epsilon_factory": SqrtDecay},
         ),
         # AlgorithmConfig(
         #     "TS-ep2",

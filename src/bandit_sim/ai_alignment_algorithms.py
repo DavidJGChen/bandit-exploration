@@ -12,6 +12,7 @@ from .bandits import BaseBanditEnv, BernoulliAlignmentBanditEnv
 from .base_algorithms import BaseAlgorithm
 from .bayesian_state import BaseBayesianState, BetaBernoulliAlignmentState
 from .common import Action, Reward, SampleOutput
+from .epsilon_functions import EpsilonFactory, EpsilonFunction
 
 
 class IDSAlignmentAlgorithm(BaseAlgorithm):
@@ -128,12 +129,15 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
 
 
 class EpsilonThompsonSamplingAlignmentAlgorithm(BaseAlgorithm):
+    epsilon_factory: EpsilonFactory
+    epsilon_func: EpsilonFunction
+
     def __init__(
         self,
         bandit_env: BaseBanditEnv,
         bayesian_state: BaseBayesianState,
         rng: Generator,
-        epsilon_func: Callable[[int], float],
+        epsilon_factory: type[EpsilonFactory],
     ):
         # Not the best way to do this, but need this hack for now.
         if type(bandit_env) is not BernoulliAlignmentBanditEnv:
@@ -145,9 +149,12 @@ class EpsilonThompsonSamplingAlignmentAlgorithm(BaseAlgorithm):
                 f"Algorithm is only valid with {BetaBernoulliAlignmentState}"
             )
         super().__init__(bandit_env, bayesian_state, rng)
-        self.epsilon_func = epsilon_func
+        self.epsilon_factory = epsilon_factory
 
-    def reset_algorithm_state(self) -> None: ...
+    def reset_algorithm_state(self) -> None:
+        self.epsilon_func = self.epsilon_factory.func_creator(
+            self.T, self.bandit_env, self.bayesian_state
+        )
 
     def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         action: Action

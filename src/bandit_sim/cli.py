@@ -16,6 +16,7 @@ from numpy.typing import NDArray
 from ray import ray
 from ray.experimental import tqdm_ray
 from ray.util.multiprocessing import Pool
+from pydantic_yaml import to_yaml_str
 
 from .bandits import BaseBanditEnv
 from .common import Reward
@@ -164,8 +165,8 @@ def entry(
     with open(os.path.join(output_dir, "simulation_config.yaml"), "w") as config_file:
         saved_config = {
             "bandit_env_name": bandit_env_name,
-            "bandit_env_config": asdict(bandit_env_config),
-            "algorithm_configs": [asdict(alg_config) for alg_config in algorithms],
+            "bandit_env_config": bandit_env_config.model_dump(),
+            "algorithm_configs": [alg_config.model_dump() for alg_config in algorithms],
             "settings": asdict(setting),
         }
         yaml.dump(saved_config, config_file)

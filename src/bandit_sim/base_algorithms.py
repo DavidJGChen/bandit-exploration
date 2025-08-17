@@ -12,6 +12,7 @@ from scipy.optimize import minimize_scalar
 from .bandits import BaseBanditEnv, LinearBanditEnv
 from .bayesian_state import BaseBayesianState
 from .common import Action, Reward
+from .epsilon_functions import EpsilonFunction, EpsilonFactory
 
 DEBUG = False
 
@@ -98,18 +99,23 @@ class RandomAlgorithm(BaseAlgorithm):
 
 
 class EpsilonGreedyAlgorithm(BaseAlgorithm):
+    epsilon_factory: EpsilonFactory
+    epsilon_func: EpsilonFunction
+
     def __init__(
         self,
         bandit_env: BaseBanditEnv,
         bayesian_state: BaseBayesianState,
         rng: Generator,
-        epsilon_func: Callable[[int], float],
+        epsilon_factory: type[EpsilonFactory],
     ) -> None:
         super().__init__(bandit_env, bayesian_state, rng)
-        self.epsilon_func = epsilon_func
+        self.epsilon_factory = epsilon_factory
 
     def reset_algorithm_state(self) -> None:
-        pass
+        self.epsilon_func = self.epsilon_factory.func_creator(
+            self.T, self.bandit_env, self.bayesian_state
+        )
 
     def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
         if self.rng.random() < self.epsilon_func(t):
