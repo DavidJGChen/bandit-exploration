@@ -114,11 +114,17 @@ class BaseBanditEnv[P: _BanditsArm]:
             print("Action invalid:", e)
             raise
 
+    def export_params(self) -> NDArray:
+        raise NotImplementedError
+
 
 class BernoulliBanditEnv(BaseBanditEnv[_BernoulliArm]):
     def initialize_arms(self) -> list[_BernoulliArm]:
         thetas: NDArray[float64] = np.random.uniform(0, 1, size=(self.K,))
         return [_BernoulliArm(theta) for theta in thetas]
+
+    def export_params(self) -> NDArray[float64]:
+        return np.array([arm.theta for arm in self.arms])
 
 
 class GaussianBanditEnv(BaseBanditEnv[_GaussianArm]):
@@ -127,11 +133,17 @@ class GaussianBanditEnv(BaseBanditEnv[_GaussianArm]):
         etas: NDArray[float64] = np.ones(self.K)
         return [_GaussianArm(mu, eta) for mu, eta in zip(mus, etas)]
 
+    def export_params(self) -> NDArray[float64]:
+        return np.array([[arm.mu, arm.eta] for arm in self.arms])
+
 
 class PoissonBanditEnv(BaseBanditEnv[_PoissonArm]):
     def initialize_arms(self) -> list[_PoissonArm]:
         rates: NDArray[float64] = np.random.exponential(1.0, size=(self.K,))
         return [_PoissonArm(rate) for rate in rates]
+
+    def export_params(self) -> NDArray[float64]:
+        return np.array([arm.rate for arm in self.arms])
 
 
 class LinearBanditEnv(BaseBanditEnv[_LinearArm]):
@@ -155,6 +167,9 @@ class LinearBanditEnv(BaseBanditEnv[_LinearArm]):
         )
         self.phi = features
         return [_LinearArm(feature, self.theta) for feature in features]
+
+    def export_params(self) -> NDArray[float64]:
+        return np.array([[arm.feature, self.theta] for arm in self.arms])
 
 
 class BernoulliAlignmentBanditEnv(BaseBanditEnv[_BernoulliAlignmentArmPair]):
@@ -181,3 +196,6 @@ class BernoulliAlignmentBanditEnv(BaseBanditEnv[_BernoulliAlignmentArmPair]):
         except KeyError as e:
             print("Action invalid:", e)
             raise
+
+    def export_params(self) -> NDArray[float64]:
+        return np.array([[arm.phi, arm.theta] for arm in self.arms])

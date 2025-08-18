@@ -19,6 +19,7 @@ class IDSData(BaseDataClass):
     reward: Reward
     action: Action
     info_ratio: float64
+    r_star: Reward
 
 
 class IDSAlignmentAlgorithm(BaseAlgorithm[IDSData]):
@@ -59,7 +60,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm[IDSData]):
             1 - self.phi_samples
         ) * (1 - self.theta_samples)
 
-        R_star = np.mean(np.max(est_rewards_from_samples, axis=1))
+        R_star = np.mean(np.max(est_rewards_from_samples, axis=0))
 
         action: Action
         info_ratio: float64
@@ -70,9 +71,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm[IDSData]):
         if not self.use_argmin:
             pi = cp.Variable(self.K)
             objective = cp.Minimize(
-                cp.quad_over_lin(
-                    (R_star - pi @ est_rewards) * 1000.0, pi @ mutual_infos * 1000000.0
-                )
+                cp.quad_over_lin(R_star - pi @ est_rewards, pi @ mutual_infos)
             )
             constraints = [0 <= pi, pi <= 1, cp.sum(pi) == 1.0]
             prob = cp.Problem(objective, constraints)
@@ -115,7 +114,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm[IDSData]):
             index = action - self.bandit_env.K_env
             self.theta_samples[index] = self.__calculate_param(action)
 
-        return IDSData(output.reward, Action(action), info_ratio)
+        return IDSData(output.reward, Action(action), info_ratio, R_star)
 
     def __calculate_params(self) -> NDArray[float64]:
         all_params = np.array(

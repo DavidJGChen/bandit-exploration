@@ -45,5 +45,8 @@ def get_settings() -> Settings:
     raise Exception("Settings not initialized")
 
 
-def generate_base_filename(base_seed: int, trial_id: int) -> str:
-    return f"seed{base_seed}_id{trial_id}.parquet"
+def generate_base_filename(base_seed: int, trial_id: int | None = None) -> str:
+    if trial_id is None:
+        return f"seed{base_seed}.npy"
+    else:
+        return f"seed{base_seed}_id{trial_id}.parquet"

@@ -137,16 +137,16 @@ def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
             algorithm_type="IDSAlignmentAlgorithm",
             extra_params={"M": 10000, "use_argmin": False},
         ),
-        AlgorithmConfig(
-            label="IDS argmin",
-            algorithm_type="IDSAlignmentAlgorithm",
-            extra_params={"M": 10000, "use_argmin": True},
-        ),
-        AlgorithmConfig(
-            label="TS ep1",
-            algorithm_type="EpsilonThompsonSamplingAlignmentAlgorithm",
-            extra_params={"epsilon_factory": "SqrtDecay"},
-        ),
+        # AlgorithmConfig(
+        #     label="IDS argmin",
+        #     algorithm_type="IDSAlignmentAlgorithm",
+        #     extra_params={"M": 10000, "use_argmin": True},
+        # ),
+        # AlgorithmConfig(
+        #     label="TS ep1",
+        #     algorithm_type="EpsilonThompsonSamplingAlignmentAlgorithm",
+        #     extra_params={"epsilon_factory": "SqrtDecay"},
+        # ),
         # AlgorithmConfig(
         #     "TS-ep2",
         #     EpsilonThompsonSamplingAlignmentAlgorithm,

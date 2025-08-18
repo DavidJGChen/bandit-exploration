@@ -34,7 +34,10 @@ def cumulative_regret(
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
 
-def trial(trial_id: int, settings: Settings) -> tuple[int, pl.DataFrame]:
+def trial(
+    x: tuple[int, int], settings: Settings
+) -> tuple[int, int, pl.DataFrame, NDArray]:
+    i, trial_id = x
     rng = np.random.default_rng([trial_id, settings.base_seed])
     initial_rng_state = rng.bit_generator.state
 
@@ -73,7 +76,12 @@ def trial(trial_id: int, settings: Settings) -> tuple[int, pl.DataFrame]:
 
         result_df = pl.concat([result_df, df], how="diagonal")
 
-    return trial_id, result_df.with_columns(trial=pl.lit(trial_id, dtype=pl.UInt16))
+    return (
+        i,
+        trial_id,
+        result_df.with_columns(trial=pl.lit(trial_id, dtype=pl.UInt16)),
+        bandit_env.export_params(),
+    )
 
 
 @app.default()
@@ -111,12 +119,12 @@ def entry(
     today = datetime.now()
     output_dir = f"output/{today.strftime('%Y%m%d-%H%M')}-{bandit_env_config.label}"
 
-    trial_ids: Iterable[int]
+    trial_ids: Iterable[tuple[int, int]]
     if trial_id_overrides is not None and len(trial_id_overrides) > 0:
-        trial_ids = trial_id_overrides
+        trial_ids = list(enumerate(trial_id_overrides))
         num_trials = len(trial_ids)
     else:
-        trial_ids = range(num_trials)
+        trial_ids = list(enumerate(range(num_trials)))
 
     init_setting(
         num_trials,
@@ -160,11 +168,14 @@ def entry(
 
     # ------------------------------------------------------------------
 
+    bandit_env_param_list: list[NDArray | None] = [None for _ in range(num_trials)]
+
     if multiprocessing:
         with Pool(processes=num_processes) as pool:
             it = pool.imap(partial(trial, settings=setting), trial_ids)
             prog_bar = tqdm_ray.tqdm(total=num_trials, position=0, desc="trials")
-            for trial_id, df in it:
+            for i, trial_id, df, bandit_env_params in it:
+                bandit_env_param_list[i] = bandit_env_params
                 filename = generate_base_filename(base_seed, trial_id)
                 with open(os.path.join(output_dir, f"data_{filename}"), "wb") as f:
                     df.write_parquet(f)
@@ -172,11 +183,17 @@ def entry(
         ray.shutdown()
 
     else:
-        for trial_id in trial_ids:
-            _, df = trial(trial_id, settings=setting)
+        for i, trial_id in trial_ids:
+            _, _, df, bandit_env_params = trial((i, trial_id), settings=setting)
+            bandit_env_param_list[i] = bandit_env_params
             filename = generate_base_filename(base_seed, trial_id)
             with open(os.path.join(output_dir, f"data_{filename}"), "wb") as f:
                 df.write_parquet(f)
+
+    bandit_env_params = np.array(bandit_env_param_list)
+    filename = generate_base_filename(base_seed)
+    with open(os.path.join(output_dir, f"bandit_env_params_{filename}"), "wb") as f:
+        np.save(f, bandit_env_params)
 
 
 def main():
