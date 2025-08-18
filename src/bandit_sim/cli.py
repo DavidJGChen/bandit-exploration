@@ -36,6 +36,7 @@ def cumulative_regret(
 
 def trial(trial_id: int, settings: Settings) -> tuple[int, pl.DataFrame]:
     rng = np.random.default_rng([trial_id, settings.base_seed])
+    initial_rng_state = rng.bit_generator.state
 
     algorithms = get_algorithms(settings)
 
@@ -56,6 +57,9 @@ def trial(trial_id: int, settings: Settings) -> tuple[int, pl.DataFrame]:
     result_df = pl.DataFrame()  # TODO: Add schema
 
     for i, alg_config in enumerate(algorithms):
+        # reset rng state
+        rng.bit_generator.state = initial_rng_state
+
         alg_class = alg_config.algorithm_type
         kwargs = alg_config.extra_params
         alg_instance = alg_class(bandit_env, bayesian_state, rng, **kwargs)
