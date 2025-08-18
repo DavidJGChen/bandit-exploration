@@ -11,7 +11,6 @@ import yaml  # type: ignore
 from cyclopts import App, Parameter
 from cyclopts.types import NonNegativeInt, PositiveInt, UInt8
 from icecream import ic
-from numpy import float64
 from numpy.typing import NDArray
 from ray import ray
 from ray.experimental import tqdm_ray
@@ -20,7 +19,7 @@ from ray.util.multiprocessing import Pool
 from .bandits import BaseBanditEnv
 from .common import Reward
 from .configs import bandit_env_config, bandit_env_name, get_algorithms
-from .setting import Settings, get_settings, init_setting
+from .setting import Settings, generate_base_filename, get_settings, init_setting
 
 app = App("bandit-sim")
 
@@ -35,25 +34,13 @@ def cumulative_regret(
     return optimal_reward * np.arange(1, T + 1) - cumulative_reward
 
 
-# TODO: move this function somewhere else
-def generate_base_filename(base_seed: int, trial_id: int, alg_label) -> str:
-    return f"{alg_label}_seed{base_seed}_id{trial_id}.npy"
-
-
-def trial(
-    trial_id: int, settings: Settings
-) -> tuple[int, NDArray[Reward], NDArray[float64]]:
+def trial(trial_id: int, settings: Settings) -> tuple[int, pl.DataFrame]:
     rng = np.random.default_rng([trial_id, settings.base_seed])
 
     algorithms = get_algorithms(settings)
-    num_algs = len(algorithms)
 
     num_arms = settings.num_arms
     T = settings.T
-
-    all_regrets = np.zeros((num_algs, T))
-    all_actions = np.zeros((num_algs, T))
-    all_extras = []
 
     kwargs = bandit_env_config.extra_args
     bandit_env = bandit_env_config.bandit_env(
@@ -66,22 +53,28 @@ def trial(
     ic("means:", np.array([arm.mean for arm in bandit_env.arms]))
     ic("best mean:", bandit_env.optimal_mean)
 
+    result_df = pl.DataFrame()  # TODO: Add schema
+
     for i, alg_config in enumerate(algorithms):
         alg_class = alg_config.algorithm_type
         kwargs = alg_config.extra_params
         alg_instance = alg_class(bandit_env, bayesian_state, rng, **kwargs)
-        rewards, actions, extras = alg_instance.run(T, trial_id, alg_config.label)
-        regrets = cumulative_regret(bandit_env, rewards)
+        df: pl.DataFrame = alg_instance.run(T, trial_id, alg_config.label).with_columns(
+            algorithm=pl.lit(alg_config.label, pl.Categorical),
+            time_step=pl.arange(0, T),
+        )
 
-        all_regrets[i] = regrets
-        all_actions[i] = actions
-        all_extras.append(extras)
+        # TODO: Potentially inefficient, can refactor.
+        # regrets = cumulative_regret(bandit_env, df["reward"])
+        # df = df.with_columns(regret=pl.from_numpy(regrets))
+        ic(result_df.schema)
+        ic(df.schema)
 
-    extra_df = pl.from_dicts(all_extras[0])
-    ic(extra_df)
+        result_df = pl.concat([result_df, df], how="diagonal")
+
     ic("est means:", bayesian_state.get_means())
 
-    return trial_id, all_regrets, all_actions
+    return trial_id, result_df.with_columns(trial=pl.lit(trial_id))
 
 
 @app.default()
@@ -89,7 +82,6 @@ def entry(
     num_trials: Annotated[PositiveInt, Parameter(alias="-n")] = 100,
     num_processes: UInt8 = 10,
     T: Annotated[PositiveInt, Parameter(alias="-T")] = 500,
-    mcmc_particles: PositiveInt = 10000,
     num_arms: Annotated[UInt8, Parameter(alias="-K")] = 10,
     base_seed: int = 0,
     multiprocessing: bool = True,
@@ -105,8 +97,6 @@ def entry(
         The number of parallel simulation processes.
     T: PositiveInt
         The horizon for each trial.
-    mcmc_particles: PositiveInt
-        The number of particles to use in MCMC for IDS.
     num_arms: UInt8
         The number of bandits arms
     base_seed: int
@@ -117,7 +107,7 @@ def entry(
         Run a specific set of trial IDs. Overrides num_trials.
         This in combination with base_seed determines the random behavior of all trials.
     """
-    ic.disable()
+    # ic.disable()
 
     today = datetime.now()
     output_dir = f"output/{today.strftime('%Y%m%d-%H%M')}-{bandit_env_config.label}"
@@ -133,7 +123,6 @@ def entry(
         num_trials,
         num_processes,
         T,
-        mcmc_particles,
         num_arms,
         base_seed,
         multiprocessing,
@@ -176,31 +165,19 @@ def entry(
         with Pool(processes=num_processes) as pool:
             it = pool.imap(partial(trial, settings=setting), trial_ids)
             prog_bar = tqdm_ray.tqdm(total=num_trials, position=0, desc="trials")
-            for trial_id, regrets, actions in it:
-                for alg_config in algorithms:
-                    filename = generate_base_filename(
-                        base_seed, trial_id, alg_config.label
-                    )
-                    with open(
-                        os.path.join(output_dir, f"regrets_{filename}"), "wb"
-                    ) as f:
-                        np.save(f, regrets)
-                    with open(
-                        os.path.join(output_dir, f"actions_{filename}"), "wb"
-                    ) as f:
-                        np.save(f, actions)
+            for trial_id, df in it:
+                filename = generate_base_filename(base_seed, trial_id)
+                with open(os.path.join(output_dir, f"data_{filename}"), "wb") as f:
+                    df.write_parquet(f)
                 prog_bar.update(1)
         ray.shutdown()
 
     else:
         for trial_id in trial_ids:
-            _, regrets, actions = trial(trial_id, settings=setting)
-            for alg_config in algorithms:
-                filename = generate_base_filename(base_seed, trial_id, alg_config.label)
-                with open(os.path.join(output_dir, f"regrets_{filename}"), "wb") as f:
-                    np.save(f, regrets)
-                with open(os.path.join(output_dir, f"actions_{filename}"), "wb") as f:
-                    np.save(f, actions)
+            _, df = trial(trial_id, settings=setting)
+            filename = generate_base_filename(base_seed, trial_id)
+            with open(os.path.join(output_dir, f"data_{filename}"), "wb") as f:
+                df.write_parquet(f)
 
 
 def main():

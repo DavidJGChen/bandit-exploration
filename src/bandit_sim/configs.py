@@ -1,20 +1,39 @@
+"""
+This file is heavily WIP. I intend to rework it to the point where config files can
+be saved with each run, and those same config files can be loaded into the bandit
+simulator to reproduce the run.Action
+
+I'm using Pydantic for serialization and validation.Action
+
+As of right now, the configuration is hard-coded in this file, and also requires
+some tricks to make sure classes are loaded properly. However, outputting the config
+to a YAML seems to work fine.
+
+TODO:
+- Create intermediate Enums for each class, and wrap them to be serializable and
+    deserializable.
+- Somehow create validator for epsilon functions
+- Write code to load in config and validate it to config models.
+"""
+
 from typing import Annotated, Any, TypeVar
 
 from pydantic import BaseModel, BeforeValidator, PlainSerializer
 
-from .bandits import (
-    BaseBanditEnv,
-)
-from .base_algorithms import (
-    BaseAlgorithm,
-    # BayesUCBAlgorithm,
-    # ThompsonSamplingAlgorithm,
-    # VarianceIDSAlgorithm,
-)
-from .bayesian_state import (
-    BaseBayesianState,
-)
+from .ai_alignment_algorithms import *  # noqa: F403
+from .bandits import BaseBanditEnv
+from .base_algorithms import BaseAlgorithm
+from .bayesian_state import BaseBayesianState
+from .epsilon_functions import EpsilonFactory
 from .setting import Settings
+
+# This is a workaround to make sure all the subclasses are loaded properly.
+class_dict = (
+    {alg.__name__: alg for alg in BaseAlgorithm.__subclasses__()}
+    | {env.__name__: env for env in BaseBanditEnv.__subclasses__()}
+    | {state.__name__: state for state in BaseBayesianState.__subclasses__()}
+    | {ep_func.__name__: ep_func for ep_func in EpsilonFactory.__subclasses__()}
+)
 
 T = TypeVar("T")
 
@@ -26,7 +45,7 @@ def serializer(class_type: type[Any]) -> str:
 def validator[T](string: str) -> type[Any]:
     if not isinstance(string, str):
         raise ValueError("Not a str")
-    target_class = globals()[string]
+    target_class = class_dict[string]
     if not isinstance(target_class, type):
         raise ValueError("Not a class")
     return target_class
@@ -87,8 +106,6 @@ class AlgorithmConfig(BaseModel):
 
 
 def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
-    mcmc_particles = settings.mcmc_particles
-
     return [
         # AlgorithmConfig("random", RandomAlgorithm, {}),
         # AlgorithmConfig(
@@ -109,16 +126,16 @@ def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
         # ),
         # AlgorithmConfig("Bayes UCB", BayesUCBAlgorithm, {"c": 0}),
         # AlgorithmConfig("TS", ThompsonSamplingAlgorithm, {}),
-        # AlgorithmConfig("V-IDS", VarianceIDSAlgorithm, {"M": mcmc_particles}),
+        # AlgorithmConfig("V-IDS", VarianceIDSAlgorithm, {"M": 10000}),
         # AlgorithmConfig(
         #     "V-IDS argmin",
         #     VarianceIDSAlgorithm,
-        #     {"M": mcmc_particles, "use_argmin": True},
+        #     {"M": 10000, "use_argmin": True},
         # ),
         AlgorithmConfig(
             label="IDS",
             algorithm_type="IDSAlignmentAlgorithm",
-            extra_params={"M": mcmc_particles, "use_argmin": True},
+            extra_params={"M": 10000, "use_argmin": True},
         ),
         AlgorithmConfig(
             label="TS-ep1",

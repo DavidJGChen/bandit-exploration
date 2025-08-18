@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import cvxpy as cp
 import numpy as np
 from icecream import ic
@@ -6,13 +8,20 @@ from numpy.random import Generator
 from numpy.typing import NDArray
 
 from .bandits import BaseBanditEnv, BernoulliAlignmentBanditEnv
-from .base_algorithms import BaseAlgorithm
+from .base_algorithms import BaseAlgorithm, BaseDataClass, DefaultData
 from .bayesian_state import BaseBayesianState, BetaBernoulliAlignmentState
 from .common import Action, Reward, SampleOutput
 from .epsilon_functions import EpsilonFactory, EpsilonFunction
 
 
-class IDSAlignmentAlgorithm(BaseAlgorithm):
+@dataclass(frozen=True, slots=True)
+class IDSData(BaseDataClass):
+    reward: Reward
+    action: Action
+    info_ratio: float64
+
+
+class IDSAlignmentAlgorithm(BaseAlgorithm[IDSData]):
     phi_samples: NDArray[float64]
     theta_samples: NDArray[float64]
     mutual_infos_phi: NDArray[float64]
@@ -42,7 +51,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         self.phi_samples, self.theta_samples = self.__calculate_params()
 
-    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+    def single_step(self, t: int) -> IDSData:
         est_rewards = self.bayesian_state.get_means()
         mutual_infos = self.bayesian_state.get_mutual_infos()
 
@@ -106,11 +115,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
             index = action - self.bandit_env.K_env
             self.theta_samples[index] = self.__calculate_param(action)
 
-        return (
-            output.reward,
-            action,
-            {"argmin": argmin_fallback, "info_ratio": info_ratio},
-        )
+        return IDSData(output.reward, Action(action), info_ratio)
 
     def __calculate_params(self) -> NDArray[float64]:
         all_params = np.array(
@@ -125,7 +130,7 @@ class IDSAlignmentAlgorithm(BaseAlgorithm):
 # ------------------------------------------------
 
 
-class EpsilonThompsonSamplingAlignmentAlgorithm(BaseAlgorithm):
+class EpsilonThompsonSamplingAlignmentAlgorithm(BaseAlgorithm[DefaultData]):
     epsilon_factory: EpsilonFactory
     epsilon_func: EpsilonFunction
 
@@ -153,7 +158,7 @@ class EpsilonThompsonSamplingAlignmentAlgorithm(BaseAlgorithm):
             self.T, self.bandit_env, self.bayesian_state
         )
 
-    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+    def single_step(self, t: int) -> DefaultData:
         action: Action
         if t < self.K:
             action = Action(t)
@@ -170,4 +175,4 @@ class EpsilonThompsonSamplingAlignmentAlgorithm(BaseAlgorithm):
 
         self.bayesian_state.update_posterior_with_outcomes(output, action)
 
-        return output.reward, action, None
+        return DefaultData(output.reward, Action(action))

@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
+from collections import defaultdict
+from dataclasses import dataclass
 
 import cvxpy as cp
 import numpy as np
+import polars as pl
 from numpy import float64
 from numpy.random import Generator
 from numpy.typing import NDArray
@@ -16,12 +19,22 @@ from .epsilon_functions import EpsilonFactory, EpsilonFunction
 DEBUG = False
 
 
-class BaseAlgorithm(ABC):
+class BaseDataClass: ...
+
+
+@dataclass(frozen=True, slots=True)
+class DefaultData(BaseDataClass):
+    reward: Reward
+    action: Action
+
+
+# D = TypeVar("D", bound=BaseDataClass)
+
+
+class BaseAlgorithm[D: BaseDataClass](ABC):
     t: int
     T: int
-    reward_history: NDArray[Reward]
-    action_history: NDArray[Action]
-    extra_history: list[dict | None]
+    history: defaultdict[str, list]
     bandit_env: BaseBanditEnv
     K: int
     bayesian_state: BaseBayesianState
@@ -38,31 +51,26 @@ class BaseAlgorithm(ABC):
         self.K = self.bandit_env.K
         self.rng = rng
 
-    def run(
-        self, T: int, trial_id: int, alg_label: str
-    ) -> tuple[NDArray[Reward], NDArray[Action], list[dict | None]]:
+    def run(self, T: int, trial_id: int, alg_label: str) -> pl.DataFrame:
         self.__reset_state(T)
 
         prog_bar = tqdm_ray.tqdm(total=T, desc=f"trial: {trial_id}, alg: {alg_label}")
         for t in range(T):
-            reward, action, extra = self.__single_step(t)
-            self.reward_history[t] = reward
-            self.action_history[t] = action
-            self.extra_history.append(extra)
+            data: D = self.__single_step(t)
+            for field in data.__slots__:
+                self.history[field].append(getattr(data, field))
             prog_bar.update(1)
         prog_bar.close()
-        return self.reward_history, self.action_history, self.extra_history
+        return pl.from_dict(self.history)
 
     def __reset_state(self, T: int) -> None:
         self.t = 0
         self.T = T
-        self.reward_history = np.zeros(T)
-        self.action_history = np.zeros(T, dtype=Action)
-        self.extra_history = []
+        self.history = defaultdict(list)
         self.bayesian_state.reset_state()
         self.reset_algorithm_state()
 
-    def __single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+    def __single_step(self, t: int) -> D:
         return self.single_step(t)
 
     @abstractmethod
@@ -70,14 +78,14 @@ class BaseAlgorithm(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+    def single_step(self, t: int) -> D:
         raise NotImplementedError
 
 
 # ------------------------------------------------
 
 
-class RandomAlgorithm(BaseAlgorithm):
+class RandomAlgorithm(BaseAlgorithm[DefaultData]):
     def __init__(
         self,
         bandit_env: BaseBanditEnv,
@@ -89,15 +97,15 @@ class RandomAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         pass
 
-    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+    def single_step(self, t: int) -> DefaultData:
         action = Action(self.rng.choice(self.K))
-        return self.bandit_env.sample(action), action, None
+        return DefaultData(self.bandit_env.sample(action), action)
 
 
 # ------------------------------------------------
 
 
-class EpsilonGreedyAlgorithm(BaseAlgorithm):
+class EpsilonGreedyAlgorithm(BaseAlgorithm[DefaultData]):
     epsilon_factory: EpsilonFactory
     epsilon_func: EpsilonFunction
 
@@ -116,7 +124,7 @@ class EpsilonGreedyAlgorithm(BaseAlgorithm):
             self.T, self.bandit_env, self.bayesian_state
         )
 
-    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+    def single_step(self, t: int) -> DefaultData:
         if self.rng.random() < self.epsilon_func(t):
             action = Action(self.rng.choice(self.K))
         else:
@@ -126,13 +134,13 @@ class EpsilonGreedyAlgorithm(BaseAlgorithm):
 
         self.bayesian_state.update_posterior(reward, action)
 
-        return reward, action, None
+        return DefaultData(reward, action)
 
 
 # ------------------------------------------------
 
 
-class BayesUCBAlgorithm(BaseAlgorithm):
+class BayesUCBAlgorithm(BaseAlgorithm[DefaultData]):
     inv_log_factor: float64
 
     def __init__(
@@ -148,7 +156,7 @@ class BayesUCBAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         self.inv_log_factor = 1 / np.power(np.log(self.T), self.c)
 
-    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+    def single_step(self, t: int) -> DefaultData:
         if t < self.K:
             action = Action(t)
         else:
@@ -160,13 +168,13 @@ class BayesUCBAlgorithm(BaseAlgorithm):
 
         self.bayesian_state.update_posterior(reward, action)
 
-        return reward, action, None
+        return DefaultData(reward, action)
 
 
 # ------------------------------------------------
 
 
-class ThompsonSamplingAlgorithm(BaseAlgorithm):
+class ThompsonSamplingAlgorithm(BaseAlgorithm[DefaultData]):
     def __init__(
         self,
         bandit_env: BaseBanditEnv,
@@ -177,7 +185,7 @@ class ThompsonSamplingAlgorithm(BaseAlgorithm):
 
     def reset_algorithm_state(self) -> None: ...
 
-    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+    def single_step(self, t: int) -> DefaultData:
         if t < self.K:
             action = Action(t)
         else:
@@ -188,13 +196,13 @@ class ThompsonSamplingAlgorithm(BaseAlgorithm):
 
         self.bayesian_state.update_posterior(reward, action)
 
-        return reward, action, None
+        return DefaultData(reward, action)
 
 
 # ------------------------------------------------
 
 
-class VarianceIDSAlgorithm(BaseAlgorithm):
+class VarianceIDSAlgorithm(BaseAlgorithm[DefaultData]):
     thetas: NDArray[float64]
 
     def __init__(
@@ -214,7 +222,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
     def reset_algorithm_state(self) -> None:
         self.thetas = self.__calculate_thetas()
 
-    def single_step(self, t: int) -> tuple[Reward, Action, dict | None]:
+    def single_step(self, t: int) -> DefaultData:
         if t < self.K:
             action = Action(t)
         else:
@@ -335,7 +343,7 @@ class VarianceIDSAlgorithm(BaseAlgorithm):
         else:
             self.thetas[action] = self.__calculate_theta(action)
 
-        return reward, action, None
+        return DefaultData(reward, action)
 
     def __ids_action_scipy(self, delta: NDArray[float64], v) -> Action:
         min_ratio: float | None = None
