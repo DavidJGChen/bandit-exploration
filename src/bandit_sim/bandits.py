@@ -5,7 +5,7 @@ Environments rely on specific implementation of arms. For example, the
 BernoulliBanditEnv instantiates Bernoulli arms.
 """
 
-from typing import Generic, Protocol, TypeVar
+from typing import Protocol
 
 import numpy as np
 from numpy import float64, int_
@@ -14,16 +14,11 @@ from numpy.typing import NDArray
 
 from .common import Action, Reward, SampleOutput
 
-T = TypeVar("T", covariant=True)
 
-
-class _BanditsArm(Protocol[T]):
+class _BanditsArm[T](Protocol):
     mean: float64
 
     def sample(self, rng: Generator) -> T | SampleOutput: ...
-
-
-P = TypeVar("P", bound=_BanditsArm)
 
 
 class _BernoulliArm:
@@ -95,7 +90,7 @@ class _BernoulliAlignmentArmPair:
 # ------------------------------------------------
 
 
-class BaseBanditEnv(Generic[P]):
+class BaseBanditEnv[P: _BanditsArm]:
     K: int
     arms: list[P]
     optimal_action: Action

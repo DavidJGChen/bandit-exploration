@@ -51,9 +51,6 @@ def trial(trial_id: int, settings: Settings) -> tuple[int, pl.DataFrame]:
     )
     bayesian_state = bandit_env_config.bayesian_state(bandit_env, rng)
 
-    ic("means:", np.array([arm.mean for arm in bandit_env.arms]))
-    ic("best mean:", bandit_env.optimal_mean)
-
     result_df = pl.DataFrame()  # TODO: Add schema
 
     for i, alg_config in enumerate(algorithms):
@@ -75,8 +72,6 @@ def trial(trial_id: int, settings: Settings) -> tuple[int, pl.DataFrame]:
         ic(df.schema)
 
         result_df = pl.concat([result_df, df], how="diagonal")
-
-    ic("est means:", bayesian_state.get_means())
 
     return trial_id, result_df.with_columns(trial=pl.lit(trial_id, dtype=pl.UInt16))
 
