@@ -61,12 +61,12 @@ def trial(trial_id: int, settings: Settings) -> tuple[int, pl.DataFrame]:
         alg_instance = alg_class(bandit_env, bayesian_state, rng, **kwargs)
         df: pl.DataFrame = alg_instance.run(T, trial_id, alg_config.label).with_columns(
             algorithm=pl.lit(alg_config.label, pl.Categorical),
-            time_step=pl.arange(0, T),
+            time_step=pl.arange(0, T, dtype=pl.UInt32),
         )
 
         # TODO: Potentially inefficient, can refactor.
-        # regrets = cumulative_regret(bandit_env, df["reward"])
-        # df = df.with_columns(regret=pl.from_numpy(regrets))
+        regrets = cumulative_regret(bandit_env, df["reward"])
+        df = df.with_columns(regret=pl.Series(regrets))
         ic(result_df.schema)
         ic(df.schema)
 
@@ -74,7 +74,7 @@ def trial(trial_id: int, settings: Settings) -> tuple[int, pl.DataFrame]:
 
     ic("est means:", bayesian_state.get_means())
 
-    return trial_id, result_df.with_columns(trial=pl.lit(trial_id))
+    return trial_id, result_df.with_columns(trial=pl.lit(trial_id, dtype=pl.UInt16))
 
 
 @app.default()

@@ -135,7 +135,7 @@ def get_algorithms(settings: Settings) -> list[AlgorithmConfig]:
         AlgorithmConfig(
             label="IDS",
             algorithm_type="IDSAlignmentAlgorithm",
-            extra_params={"M": 10000, "use_argmin": True},
+            extra_params={"M": 10000, "use_argmin": False},
         ),
         AlgorithmConfig(
             label="TS-ep1",

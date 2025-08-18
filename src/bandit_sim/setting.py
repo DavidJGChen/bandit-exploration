@@ -46,4 +46,4 @@ def get_settings() -> Settings:
 
 
 def generate_base_filename(base_seed: int, trial_id: int) -> str:
-    return f"seed{base_seed}_id{trial_id}.npy"
+    return f"seed{base_seed}_id{trial_id}.parquet"
