@@ -20,6 +20,8 @@ class IDSData(BaseDataClass):
     action: Action
     info_ratio: float64
     r_star: Reward
+    argmin: bool
+    not_optimal: bool | None
 
 
 class IDSAlignmentAlgorithm(BaseAlgorithm[IDSData]):
@@ -68,10 +70,13 @@ class IDSAlignmentAlgorithm(BaseAlgorithm[IDSData]):
         # -------------------------------------------------------------------
 
         argmin_fallback = False
+        not_optimal = None
         if not self.use_argmin:
             pi = cp.Variable(self.K)
             objective = cp.Minimize(
-                cp.quad_over_lin(R_star - pi @ est_rewards, pi @ mutual_infos)
+                cp.quad_over_lin(
+                    (R_star - pi @ est_rewards) * 1000.0, pi @ mutual_infos * 1000000.0
+                )
             )
             constraints = [0 <= pi, pi <= 1, cp.sum(pi) == 1.0]
             prob = cp.Problem(objective, constraints)
@@ -87,8 +92,11 @@ class IDSAlignmentAlgorithm(BaseAlgorithm[IDSData]):
                 action = self.rng.choice(self.K, 1, p=policy)[0]
 
                 info_ratio = prob.value
+
+                not_optimal = False
             except Exception as e:
                 argmin_fallback = True
+                not_optimal = True
                 ic(e)
         else:
             argmin_fallback = True
@@ -114,7 +122,14 @@ class IDSAlignmentAlgorithm(BaseAlgorithm[IDSData]):
             index = action - self.bandit_env.K_env
             self.theta_samples[index] = self.__calculate_param(action)
 
-        return IDSData(output.reward, Action(action), info_ratio, R_star)
+        return IDSData(
+            output.reward,
+            Action(action),
+            info_ratio,
+            R_star,
+            argmin_fallback,
+            not_optimal,
+        )
 
     def __calculate_params(self) -> NDArray[float64]:
         all_params = np.array(
